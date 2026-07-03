@@ -1,0 +1,5 @@
+"""Postgres advisory lock IDs for scrape/analytics workers."""
+
+SWEEP_LOCK_ID = 0x53524C5F53574550  # "SRL_SWEP"
+BACKFILL_LOCK_ID = 0x53524C5F42434B46  # "SRL_BCKF"
+ANALYTICS_LOCK_ID = 0x53524C5F414E4C59  # "SRL_ANLY"
