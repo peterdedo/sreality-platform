@@ -44,7 +44,12 @@ export function DetailNabidky() {
             </div>
 
             <div className="panel-static">
-              <h3 className="panel__title !mb-3">{cs.detail.historieCen}</h3>
+              <div className="flex items-center justify-between gap-2 mb-3">
+                <h3 className="panel__title !mb-0">{cs.detail.historieCen}</h3>
+                <Link to={`/historie-cen?id=${data.listing.id}`} className="link-subtle text-sm shrink-0">
+                  {cs.detail.historieCenOdkazPlna}
+                </Link>
+              </div>
               <PriceChart data={data.price_history} />
             </div>
 

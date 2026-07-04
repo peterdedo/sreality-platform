@@ -9,12 +9,21 @@ export const cs = {
     nabidky: "Nabídky",
     mapa: "Mapa",
     analytika: "Analytika",
-    historieCen: "Historie cen",
+    historieCen: "Historie podle ID",
+    historieCenTitulek: "Historie cen podle ID",
     pokroziteAnalyzy: "Pokročilé analýzy",
     spravaScrapingu: "Správa scrapingu",
     otevritMenu: "Otevřít navigaci",
     zavritMenu: "Zavřít navigaci",
     mobilniNavigace: "Mobilní navigace",
+  },
+  jobs: {
+    scraping: "Scraping běží",
+    recompute: "Přepočet analýz",
+    scrapingARecompute: "Scraping a přepočet",
+    napoveda: "Některá data se mohou právě měnit.",
+    odkazScraping: "Správa scrapingu",
+    odkazAnalyzy: "Pokročilé analýzy",
   },
   common: {
     nacitani: "Načítání…",
@@ -68,8 +77,10 @@ export const cs = {
       "Průběžný snapshot datasetu ({activeCount} aktivních nabídek, data se mění). S krajem: {withRegion}. S GPS: {withGps}. {lastScrape}.",
     posledniUplnySweep: "Poslední úplný sweep",
     posledniUspesnyBeh: "Poslední úspěšný běh",
+    viceKontextu: "Více o datasetu a pokrytí",
   },
   prehled: {
+    podtitulek: "Přehled lokálního datasetu ze Sreality.cz — stav dat, pohyb nabídek a rychlé signály.",
     // Dashboard numbers are aggregates of the LOCAL scraped dataset, not the
     // whole live Sreality.cz market -- this note makes that explicit so the
     // counts aren't mistaken for market-wide totals.
@@ -80,9 +91,91 @@ export const cs = {
     // market listings), so labelled as "newly added to the dataset".
     noveZa30: "Nově zařazené do datasetu (30 dní)",
     stazeneZa30: "Odebrané z datasetu (30 dní)",
+    kpiHintAktivni:
+      "Počet aktivních inzerátů v lokálním datasetu — ne celkový trh Sreality.cz.",
+    kpiHintAktivniProbiha: "Scraping právě běží — počet se mění a není konečný.",
+    kpiHintNove: "Nově stažené nabídky za posledních 30 dní.",
+    kpiHintStazene: "Nabídky označené jako stažené z datasetu za 30 dní.",
+    kpiHintPohyb: "Čistý pohyb za 30 dní: {net}. Podrobnosti v Analytice.",
+    kpiDalsiKrokPoklesy: "Prohlédněte největší poklesy cen nebo přejděte do Analytiky.",
+  },
+  kpiInterpret: {
+    smery: {
+      healthy: "V normě",
+      stable: "Stabilní",
+      neutral: "Informace",
+      watch: "Sledovat",
+      concern: "Pozor",
+      unavailable: "Bez srovnání",
+      partial: "Neúplná data",
+    },
+    bezHistorieSnapshotu: "Historické srovnání zatím není k dispozici (chybí přepočet trhu).",
+    bezPredchozihoSnapshotu: "K dispozici je jen jeden snapshot — srovnání s minulostí zatím nejde.",
+    bezSrovnani: "Referenční srovnání pro toto období není k dispozici.",
+    aktivni: {
+      vyznam: "Kolik inzerátů je právě aktivních v lokálním datasetu (ne na celém Sreality.cz).",
+      vyznamProbiha: "Počet se mění — scraping právě doplňuje dataset.",
+      vyznamPartial: "Aktivních {active} nabídek, ale dataset je záměrně neúplný.",
+      srovnaniSnapshot: "Oproti předchozímu snapshotu ({date}): {delta}.",
+      dalsiNabidky: "Prohlédněte konkrétní nabídky",
+      dalsiScraping: "Sledujte průběh ve Správě scrapingu",
+    },
+    nove: {
+      vyznam: "Nově stažené nabídky za posledních 30 dní — ne nutně nové na trhu.",
+      benchmark: "Čistý pohyb {net} (nové {new}, stažené {removed}).",
+      dalsi: "Trend a grafy najdete v",
+    },
+    stazene: {
+      vyznam: "Nabídky označené jako stažené z datasetu za 30 dní.",
+      benchmark: "Podíl stažených na celkovém pohybu: {pct} %.",
+      dalsi: "Porovnání nových vs. stažených v",
+    },
+    poklesy: {
+      vyznam: "Nabídky se snížením ceny alespoň o 5 % oproti předchozímu záznamu.",
+      benchmark: "Celkem {total} shod z {active} aktivních.",
+      podil: "({pct} % aktivních).",
+      vsSegment: "Průměr segmentů z posledního přepočtu: ~{seg} %.",
+      bezCelkovehoPoctu: "Zobrazen náhled {shown} záznamů — celkový počet shod nebyl načten.",
+      dalsi: "Detail poklesů a odhady v",
+    },
+    podTrhem: {
+      kpiLabel: "Pod tržní cenou (odhad)",
+      vyznam: "Podíl aktivních nabídek pod odhadovanou tržní cenou (model z pokročilých analýz).",
+      benchmark: "{under} nabídek ({pct} %) · pokrytí odhady {coverage} % aktivních.",
+      bezPrepoctu: "Odhady cen zatím nejsou spočítány — spusťte přepočet.",
+      dalsi: "Prohlédněte odhady a anomálie v",
+      dalsiPrepocet: "Spusťte přepočet v",
+    },
+    region: {
+      vyznam: "Rozložení aktivních nabídek podle kraje v lokálním datasetu.",
+      benchmark: "Nejvíc nabídek: {region} ({pct} %).",
+      neznamy: "Bez kraje: {pct} %.",
+      dalsi: "Mapa a agregace podle lokality v",
+    },
+    detaily: {
+      vyznam: "Kolik aktivních nabídek má stažený detail (plocha, dispozice…).",
+      benchmark: "Pokrytí {pct} % · chybí {missing}.",
+      dalsiDoplnit: "Doplňte chybějící detaily ve",
+      dalsiAnalyzy: "Detaily jsou kompletní — přejděte k",
+    },
+    advanced: {
+      srovnaniSnapshot: "Oproti předchozímu přepočtu: {delta}.",
+      dalsi: "Detail segmentů a tabulky v",
+      medianDom: {
+        vyznam: "Typická doba, po kterou nabídka zůstává aktivní v datasetu.",
+      },
+      dropShare: {
+        vyznam: "Podíl aktivních nabídek, u kterých byla zaznamenána úprava ceny dolů.",
+      },
+      priceChange: {
+        vyznam: "Medián změny ceny od prvního záznamu do posledního v datasetu.",
+      },
+    },
   },
   export: {
     export: "Export",
+    rozsahNapoveda:
+      "Export stáhne celý výsledek dle filtrů na stránce, ne jen aktuální stránku tabulky. Surová data obsahují všechna pole z databáze.",
     formatExportu: "Formát exportu",
     rozsahExportu: "Rozsah exportu",
     exportAktualniTabulky: "Export aktuální tabulky",
@@ -97,6 +190,7 @@ export const cs = {
   },
   listings: {
     titulek: "Nabídky",
+    podtitulek: "Prohlížení, filtrování a export aktivních nabídek z lokálního datasetu.",
     lokalita: "Lokalita",
     typNemovitosti: "Typ nemovitosti",
     typNabidky: "Typ nabídky",
@@ -193,11 +287,18 @@ export const cs = {
     makler: "Makléřská společnost",
     poznamkaKCene: "Poznámka k ceně",
     historieCen: "Historie cen",
+    historieCenNapoveda:
+      "Zadejte interní ID nabídky z této platformy (vidíte ho v adrese detailu, např. /nabidky/3783). Historii najdete také přímo v detailu nabídky.",
+    historieCenPlaceholder: "např. 3783",
+    historieCenLabel: "ID nabídky",
+    historieCenOdkazNabidky: "Přejít na seznam nabídek →",
+    historieCenOdkazPlna: "Otevřít stránku historie cen →",
     zpet: "Zpět na nabídky",
     odkazSreality: "Zobrazit na Sreality.cz",
   },
   analytics: {
     titulek: "Analytika",
+    podtitulek: "Agregace a trendy nad staženým datasetem — poklesy cen, ceny za m² a struktura nabídky.",
     cenaZaM2: "Cena za m²",
     vyvojCeny: "Vývoj ceny",
     nabidkaPodleKraje: "Nabídka podle kraje",
@@ -205,8 +306,13 @@ export const cs = {
     poklesyCeny: "Poklesy cen",
     cenaZaM2Tabulka: "Agregace podle lokality — zobrazeno {count} řádků (scroll pro více).",
   },
+  historie: {
+    podtitulek: "Graf vývoje ceny jedné nabídky podle interního ID z platformy.",
+    navUpozorneni: "Pro běžné použití otevřete historii přímo z detailu nabídky.",
+  },
   scraping: {
     titulek: "Správa scrapingu",
+    podtitulek: "Operační přehled běhů scrapingu, doplnění detailů a stavu datasetu.",
     spustitScraping: "Spustit scraping",
     doplnitDetaily: "Doplnit chybějící detaily",
     doplnitDetailyPoznamka:
@@ -239,6 +345,11 @@ export const cs = {
       "Doplnění detailů právě běží (běh #{runId}, zpracováno {itemsSeen} položek). Může trvat hodiny — stránku můžete zavřít, běh pokračuje na serveru. Po přerušení stačí spustit znovu.",
     dalsiKrokAnalytics:
       "Po doplnění detailů přejděte do Pokročilých analýz a spusťte přepočet — odhady cen a anomálie využívají právě detailní pole (plocha, dispozice, stav…).",
+    dalsiKrokDetaily:
+      "Nejdříve doplňte chybějící detaily tlačítkem výše — bez nich nebudou pokročilé analýzy kompletní.",
+    cekaScraping:
+      "Scraping právě běží — nejdříve nechte doběhnout stažení, pak doplňte detaily a spusťte přepočet analýz.",
+    workflowTitulek: "Další krok",
     fazeLabels: {
       validate: "Validace",
       parse: "Zpracování",
@@ -250,6 +361,7 @@ export const cs = {
   },
   map: {
     titulek: "Mapa nabídek",
+    podtitulek: "Geografický pohled na aktivní nabídky s GPS — vždy jen viditelný výřez mapy.",
     orezanoVyrez:
       "Ve viditelném výřezu je {total} nabídek — z bezpečnostního limitu zobrazeno jen {shown}. Přibližte mapu (nebo posuňte na menší oblast), aby se zobrazilo víc bodů.",
     vyrezNapoveda:
@@ -271,7 +383,12 @@ export const cs = {
         "Pokročilé analýzy jsou zastaralé: naposledy spočítány {analyticsDate}, ale dataset byl od té doby aktualizován ({datasetDate}). Spusťte přepočet pro aktuální data.",
       aktualni: "Pokročilé analýzy jsou aktuální k poslednímu přepočtu ({date}).",
       chybiDetaily:
-        "U {missing} aktivních nabídek chybí detail — odhady cen a anomálie budou neúplné. Nejdříve doplňte detaily ve Správě scrapingu, pak spusťte přepočet.",
+        "U {missing} aktivních nabídek chybí detail — odhady cen a anomálie budou neúplné.",
+      chybiDetailyAkce: "Doplňte detaily ve Správě scrapingu, pak spusťte přepočet.",
+      zastaralyAkce: "Spusťte přepočet tlačítkem výše.",
+      zadnyPrepocetAkce: "Spusťte první přepočet tlačítkem výše.",
+      probihaScrapingAkce:
+        "Scraping právě běží — počkejte na dokončení ve Správě scrapingu, pak doplňte detaily a přepočet.",
       operatorPostupTitulek: "Doporučený postup",
       operatorPostup: [
         "Doplňte chybějící detaily (nebo nechte doběhnout běžící backfill) v",

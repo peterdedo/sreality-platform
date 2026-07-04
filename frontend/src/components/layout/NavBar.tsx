@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { FourCtLogo } from "../brand/FourCtLogo";
+import { GlobalJobIndicator } from "./GlobalJobIndicator";
 import { cs } from "../../locale/cs";
 
-const links = [
+const links: { to: string; label: string; secondary?: boolean }[] = [
   { to: "/", label: cs.nav.prehledTrhu },
   { to: "/nabidky", label: cs.nav.nabidky },
   { to: "/mapa", label: cs.nav.mapa },
   { to: "/analytika", label: cs.nav.analytika },
-  { to: "/historie-cen", label: cs.nav.historieCen },
   { to: "/pokrocile-analyzy", label: cs.nav.pokroziteAnalyzy },
+  { to: "/historie-cen", label: cs.nav.historieCen, secondary: true },
   { to: "/sprava-scrapingu", label: cs.nav.spravaScrapingu },
 ];
 
@@ -28,7 +29,9 @@ function NavLinks({
           to={link.to}
           end={link.to === "/"}
           onClick={onNavigate}
-          className={({ isActive }) => `app-nav__link${isActive ? " app-nav__link--active" : ""}`}
+          className={({ isActive }) =>
+            `app-nav__link${isActive ? " app-nav__link--active" : ""}${link.secondary ? " app-nav__link--secondary" : ""}`
+          }
         >
           <span className="app-nav__label">{link.label}</span>
           <span className="app-nav__indicator" aria-hidden />
@@ -62,6 +65,8 @@ export function NavBar() {
 
         <NavLinks className="app-nav app-nav--desktop" />
 
+        <GlobalJobIndicator />
+
         <button
           type="button"
           className="app-nav-toggle lg:hidden"
@@ -86,6 +91,7 @@ export function NavBar() {
           />
           <div id="mobile-nav-drawer" className="app-nav-drawer app-nav-drawer--open" aria-hidden={false}>
             <p className="app-nav-drawer__eyebrow">{cs.nav.mobilniNavigace}</p>
+            <GlobalJobIndicator />
             <NavLinks
               className="app-nav app-nav--drawer flex-col items-stretch"
               onNavigate={() => setMenuOpen(false)}

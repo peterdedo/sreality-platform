@@ -1,8 +1,9 @@
 import { Fragment, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { api } from "../api/client";
-import type { RunItemLog, ScrapingRun } from "../api/types";
+import { api } from "../api/client";import type { RunItemLog, ScrapingRun } from "../api/types";
+import { OperatorNextStep } from "../components/OperatorNextStep";
+import { PanelInsight } from "../components/kpi/KpiInterpretationLine";
 import { DatasetCoverageBanner } from "../components/DatasetCoverageBanner";
+import { interpretDetailCoverage } from "../kpi/interpret";
 import { PageContainer } from "../components/layout/PageContainer";
 import { ErrorState, LoadingState } from "../components/StateHelpers";
 import { useAsync } from "../hooks/useAsync";
@@ -125,6 +126,7 @@ export function SpravaScrapingu() {
   return (
     <PageContainer
       title={cs.scraping.titulek}
+      subtitle={cs.scraping.podtitulek}
       actions={
         <div className="flex items-center gap-2">
           <button className="btn-secondary" onClick={handleBackfillDetails} title={cs.scraping.doplnitDetailyPoznamka}>
@@ -136,10 +138,25 @@ export function SpravaScrapingu() {
         </div>
       }
     >
-      {summary.data && <DatasetCoverageBanner summary={summary.data} />}
+      {summary.data && <DatasetCoverageBanner summary={summary.data} collapsible />}
       <RefreshIndicator active={refreshing || summary.refreshing} />
       {message && <div className={successBanner}>{message}</div>}
       <p className="text-xs text-ink-muted mb-3 max-w-2xl">{cs.scraping.doplnitDetailyPoznamka}</p>
+
+      {summary.data && (
+        <OperatorNextStep
+          summary={summary.data}
+          scrapingRuns={data}
+          analyticsRuns={null}
+          context="scraping"
+        />
+      )}
+
+      {activeCount > 0 && (
+        <PanelInsight
+          interpretation={interpretDetailCoverage(withDetail, activeCount, missingDetail)}
+        />
+      )}
 
       {activeCount > 0 && (
         <StatusBanner variant="neutral">
@@ -155,15 +172,6 @@ export function SpravaScrapingu() {
           {cs.scraping.backfillProbiha
             .replace("{runId}", String(backfillRun.id))
             .replace("{itemsSeen}", String(backfillRun.items_seen))}
-        </StatusBanner>
-      )}
-
-      {missingDetail === 0 && activeCount > 0 && !backfillRun && (
-        <StatusBanner variant="success">
-          {cs.scraping.dalsiKrokAnalytics}{" "}
-          <Link to="/pokrocile-analyzy" className="link-brand font-semibold">
-            {cs.nav.pokroziteAnalyzy}
-          </Link>
         </StatusBanner>
       )}
 

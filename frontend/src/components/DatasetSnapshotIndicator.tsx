@@ -6,9 +6,11 @@ import { freshnessBadgeClass } from "../theme/status";
 type Props = {
   summary: DatasetSummary;
   compact?: boolean;
+  /** Hide compare guidance in the strip — shown in collapsible dataset context instead. */
+  essentialOnly?: boolean;
 };
 
-export function DatasetSnapshotIndicator({ summary, compact = false }: Props) {
+export function DatasetSnapshotIndicator({ summary, compact = false, essentialOnly = false }: Props) {
   const freshness = summary.dataset_freshness ?? "empty";
   const label =
     summary.snapshot_state_label_cs ??
@@ -44,7 +46,7 @@ export function DatasetSnapshotIndicator({ summary, compact = false }: Props) {
           </span>
         )}
       </div>
-      {summary.compare_guidance_cs && (
+      {summary.compare_guidance_cs && !essentialOnly && (
         <p className="text-xs text-ink-muted leading-relaxed">{summary.compare_guidance_cs}</p>
       )}
       {summary.safe_to_compare_with_sreality_total === false && freshness === "in_progress" && (

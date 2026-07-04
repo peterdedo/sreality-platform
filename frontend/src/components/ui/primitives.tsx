@@ -1,5 +1,7 @@
 import type { PropsWithChildren, ReactNode } from "react";
+import type { KpiInterpretation } from "../../kpi/types";
 import type { BannerVariant } from "../../theme/tokens";
+import { KpiInterpretationLine } from "../kpi/KpiInterpretationLine";
 
 type Props = PropsWithChildren<{
   variant: BannerVariant;
@@ -39,9 +41,11 @@ type KpiProps = {
   tone?: "default" | "accent" | "brand" | "danger";
   loading?: boolean;
   error?: string;
+  hint?: string;
+  interpretation?: KpiInterpretation;
 };
 
-export function KpiCard({ label, value, tone = "default", loading, error }: KpiProps) {
+export function KpiCard({ label, value, tone = "default", loading, error, hint, interpretation }: KpiProps) {
   const toneClass =
     tone === "brand" ? "kpi-card--brand" : tone === "danger" ? "kpi-card--danger" : tone === "accent" ? "kpi-card--accent" : "";
   const valueClass =
@@ -64,7 +68,11 @@ export function KpiCard({ label, value, tone = "default", loading, error }: KpiP
       ) : error ? (
         <p className="text-danger text-sm mt-2 font-medium">{error}</p>
       ) : (
-        <p className={valueClass}>{value}</p>
+        <>
+          <p className={valueClass}>{value}</p>
+          {interpretation && !loading && !error && <KpiInterpretationLine interpretation={interpretation} />}
+          {!interpretation && hint && <p className="kpi-card__hint">{hint}</p>}
+        </>
       )}
     </div>
   );

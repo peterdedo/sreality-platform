@@ -87,6 +87,8 @@ export function ExportButton({ scopes }: Props) {
               </select>
             </div>
 
+            <p className="text-xs text-ink-muted leading-relaxed">{cs.export.rozsahNapoveda}</p>
+
             {error && <p className="text-xs text-danger">{error}</p>}
 
             <button

@@ -1,6 +1,8 @@
+import { Link } from "react-router-dom";
 import type { AnalyticsRunRow, DatasetSummary } from "../../api/types";
 import { formatDate } from "../../constants";
 import { cs } from "../../locale/cs";
+import { isDatasetInProgress } from "../../hooks/useDatasetSummary";
 import { StatusBanner } from "../ui/primitives";
 
 type Props = {
@@ -23,17 +25,36 @@ export function AnalyticsFreshnessBanner({ runs, summary }: Props) {
     return <StatusBanner variant="info">{cs.advanced.freshness.probihaPrepocet}</StatusBanner>;
   }
 
+  if (isDatasetInProgress(summary)) {
+    return (
+      <StatusBanner variant="info">
+        {cs.advanced.freshness.probihaScrapingAkce}{" "}
+        <Link to="/sprava-scrapingu" className="link-brand font-semibold">
+          {cs.nav.spravaScrapingu}
+        </Link>
+      </StatusBanner>
+    );
+  }
+
   if (missingDetail > 0 && activeCount > 0) {
     return (
       <StatusBanner variant="warning">
-        {cs.advanced.freshness.chybiDetaily.replace("{missing}", String(missingDetail))}
+        {cs.advanced.freshness.chybiDetaily.replace("{missing}", String(missingDetail))}{" "}
+        {cs.advanced.freshness.chybiDetailyAkce}{" "}
+        <Link to="/sprava-scrapingu" className="link-brand font-semibold">
+          {cs.nav.spravaScrapingu}
+        </Link>
       </StatusBanner>
     );
   }
 
   const lastGood = runs.find((r) => r.status === "success" || r.status === "partial");
   if (!lastGood || !lastGood.finished_at) {
-    return <StatusBanner variant="warning">{cs.advanced.freshness.zadnyPrepocet}</StatusBanner>;
+    return (
+      <StatusBanner variant="warning">
+        {cs.advanced.freshness.zadnyPrepocet} {cs.advanced.freshness.zadnyPrepocetAkce}
+      </StatusBanner>
+    );
   }
 
   const datasetReference =
@@ -61,7 +82,8 @@ export function AnalyticsFreshnessBanner({ runs, summary }: Props) {
       <StatusBanner variant="warning">
         {cs.advanced.freshness.zastaraly
           .replace("{analyticsDate}", formatDate(lastGood.finished_at))
-          .replace("{datasetDate}", formatDate(datasetReference))}
+          .replace("{datasetDate}", formatDate(datasetReference))}{" "}
+        {cs.advanced.freshness.zastaralyAkce}
       </StatusBanner>
     );
   }

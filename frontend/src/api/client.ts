@@ -54,6 +54,11 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetchWithTimeout(`${BASE}${path}`);
   if (!res.ok) {
+    if (res.status >= 500) {
+      throw new Error(
+        `Požadavek selhal (${res.status}): ${path}. Backend může být nedostupný — ověřte, že běží na portu 8000, a obnovte stránku.`
+      );
+    }
     throw new Error(`Požadavek selhal (${res.status}): ${path}`);
   }
   return res.json() as Promise<T>;

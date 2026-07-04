@@ -1,25 +1,22 @@
 import { api } from "../api/client";
-
+import { PanelInsight } from "../components/kpi/KpiInterpretationLine";
 import { PageContainer } from "../components/layout/PageContainer";
-
 import { InventoryChart } from "../components/charts/InventoryChart";
-
 import { DatasetCoverageBanner } from "../components/DatasetCoverageBanner";
-
 import { ErrorState, LoadingState, EmptyState } from "../components/StateHelpers";
-
 import { Panel } from "../components/ui/primitives";
-
 import { LazyMount } from "../components/ui/LazyMount";
-
 import { RefreshIndicator } from "../components/ui/RefreshIndicator";
-
 import { useDatasetSummary } from "../hooks/useDatasetSummary";
-
 import { useAsync, useCachedAsync } from "../hooks/useAsync";
-
+import {
+  interpretNewListings30,
+  interpretPriceDrops,
+  interpretRegionalInventory,
+  interpretRemovedListings30,
+  latestAvgDropShare,
+} from "../kpi/interpret";
 import { cs } from "../locale/cs";
-
 import { formatCzk } from "../constants";
 
 const PRICE_DROPS_PREVIEW = 50;
@@ -29,15 +26,32 @@ export function Analytika() {
   const inventory = useCachedAsync("inventory-by-region", () => api.inventoryByRegion(), []);
   const newVsRemoved = useCachedAsync("new-vs-removed-30", () => api.newVsRemoved(30), []);
   const pricePerM2 = useAsync(() => api.pricePerM2(), []);
-  const priceDrops = useAsync(() => api.priceDrops(5, PRICE_DROPS_PREVIEW, false), []);
+  const priceDrops = useAsync(() => api.priceDrops(5, PRICE_DROPS_PREVIEW, true), []);
+  const marketSnapshots = useCachedAsync("market-dynamics-90", () => api.advanced.marketDynamics(90), []);
+
+  const activeCount = summary.data?.active_listing_count ?? 0;
+  const newCount = newVsRemoved.data?.new_count ?? 0;
+  const removedCount = newVsRemoved.data?.removed_count ?? 0;
+  const flowInterp =
+    newVsRemoved.data != null
+      ? interpretNewListings30(newCount, removedCount, summary.data)
+      : null;
+  const regionInterp = inventory.data ? interpretRegionalInventory(inventory.data) : null;
+  const priceDropInterp = interpretPriceDrops(
+    priceDrops.data?.total_matched ?? null,
+    activeCount,
+    priceDrops.data?.items.length ?? 0,
+    marketSnapshots.data ? latestAvgDropShare(marketSnapshots.data) : null
+  );
 
   return (
-    <PageContainer title={cs.analytics.titulek}>
+    <PageContainer title={cs.analytics.titulek} subtitle={cs.analytics.podtitulek}>
       <RefreshIndicator active={summary.refreshing} />
-      {summary.data && <DatasetCoverageBanner summary={summary.data} />}
+      {summary.data && <DatasetCoverageBanner summary={summary.data} collapsible />}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Panel title={cs.analytics.nabidkaPodleKraje}>
+          {regionInterp && <PanelInsight interpretation={regionInterp} />}
           {inventory.loading && !inventory.data && <LoadingState />}
           {inventory.refreshing && <RefreshIndicator active />}
           {inventory.error && <ErrorState message={inventory.error.message} />}
@@ -45,6 +59,7 @@ export function Analytika() {
         </Panel>
 
         <Panel title={`${cs.analytics.noveVsStazene} (30 dní)`}>
+          {flowInterp && <PanelInsight interpretation={flowInterp} />}
           {newVsRemoved.loading && !newVsRemoved.data && <LoadingState />}
           {newVsRemoved.refreshing && <RefreshIndicator active />}
           {newVsRemoved.error && <ErrorState message={newVsRemoved.error.message} />}
@@ -59,6 +74,11 @@ export function Analytika() {
                 <p className="text-ink-muted text-sm mt-1">Stažené nabídky z datasetu</p>
               </div>
             </div>
+          )}
+          {newVsRemoved.data && (
+            <p className="text-xs text-ink-muted text-center pb-2">
+              {interpretRemovedListings30(removedCount, newCount, summary.data).benchmark}
+            </p>
           )}
         </Panel>
 
@@ -106,9 +126,7 @@ export function Analytika() {
 
         <LazyMount minHeight={280}>
           <Panel title={cs.analytics.poklesyCeny} className="lg:col-span-2">
-            <p className="text-xs text-ink-muted mb-3">
-              {cs.dataset.poklesyNahledLimit.replace("{limit}", String(PRICE_DROPS_PREVIEW))}
-            </p>
+            <PanelInsight interpretation={priceDropInterp} />
             {priceDrops.loading && !priceDrops.data && <LoadingState />}
             {priceDrops.refreshing && <RefreshIndicator active />}
             {priceDrops.error && <ErrorState message={priceDrops.error.message} />}

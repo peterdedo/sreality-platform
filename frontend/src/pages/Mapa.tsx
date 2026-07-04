@@ -33,9 +33,14 @@ export function Mapa() {
   const isRefreshing = !isInitialLoad && markers.loading;
 
   return (
-    <PageContainer title={cs.map.titulek}>
+    <PageContainer title={cs.map.titulek} subtitle={cs.map.podtitulek}>
       {summary.data && (
-        <DatasetCoverageBanner summary={summary.data} context="map" mapLoadedCount={markers.data?.total ?? markers.data?.items.length ?? 0} />
+        <DatasetCoverageBanner
+          summary={summary.data}
+          context="map"
+          mapLoadedCount={markers.data?.total ?? markers.data?.items.length ?? 0}
+          collapsible
+        />
       )}
       <p className="map-context-note">{cs.map.vyrezNapoveda}</p>
       {markers.error && <ErrorState message={markers.error.message} />}

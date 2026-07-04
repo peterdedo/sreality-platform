@@ -69,6 +69,7 @@ export function PokroziteAnalyzy() {
   return (
     <PageContainer
       title={cs.advanced.titulek}
+      subtitle={cs.advanced.podtitulek}
       actions={
         <div className="flex items-center gap-2">
           <ExportButton scopes={exportScopes} />
@@ -81,8 +82,7 @@ export function PokroziteAnalyzy() {
         </div>
       }
     >
-      <p className="text-ink-muted text-sm mb-4 max-w-3xl">{cs.advanced.podtitulek}</p>
-      {summary.data && <DatasetCoverageBanner summary={summary.data} />}
+      {summary.data && <DatasetCoverageBanner summary={summary.data} collapsible />}
       <AnalyticsFreshnessBanner runs={runs.data} summary={summary.data ?? null} />
 
       {summary.data && summary.data.active_listing_count > 0 && (

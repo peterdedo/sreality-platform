@@ -7,9 +7,11 @@ import { ColumnSelector } from "../components/listings/ColumnSelector";
 import { SavedViews } from "../components/listings/SavedViews";
 import { DEFAULT_VISIBLE_COLUMNS } from "../components/listings/columns";
 import { ExportButton, type ExportScopeOption } from "../components/export/ExportButton";
+import { DatasetSnapshotIndicator } from "../components/DatasetSnapshotIndicator";
 import { ErrorState, LoadingState } from "../components/StateHelpers";
 import { RefreshIndicator } from "../components/ui/RefreshIndicator";
 import { useAsync } from "../hooks/useAsync";
+import { useDatasetSummary } from "../hooks/useDatasetSummary";
 import { cs } from "../locale/cs";
 
 const COLUMNS_STORAGE_KEY = "sreality:visibleListingColumns";
@@ -31,6 +33,7 @@ export function Nabidky() {
   const [filters, setFilters] = useState<ListingFilters>({ page: 1, page_size: 25, is_active: true });
   const [visibleColumns, setVisibleColumns] = useState<string[]>(loadVisibleColumns);
   const filtersKey = useMemo(() => filtersCacheKey(filters), [filters]);
+  const summary = useDatasetSummary();
   const { data, loading, error, refreshing } = useAsync(() => api.listings(filters), [filtersKey]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 1;
@@ -58,7 +61,8 @@ export function Nabidky() {
   ];
 
   return (
-    <PageContainer title={cs.listings.titulek}>
+    <PageContainer title={cs.listings.titulek} subtitle={cs.listings.podtitulek}>
+      {summary.data && <DatasetSnapshotIndicator summary={summary.data} compact />}
       <ListingFiltersBar value={filters} onChange={setFilters} />
 
       <div className="flex items-center justify-end gap-2 mb-3">

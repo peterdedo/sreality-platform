@@ -1,40 +1,30 @@
-import { execSync } from "node:child_process";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 
-function resolveApiProxyTarget() {
-  if (process.env.VITE_API_PROXY_TARGET) {
-    return process.env.VITE_API_PROXY_TARGET;
+function resolveApiProxyTarget(env: Record<string, string>) {
+  if (env.VITE_API_PROXY_TARGET) {
+    return env.VITE_API_PROXY_TARGET;
   }
-
-  try {
-    const wslIp = execSync(`wsl -d Ubuntu -e bash -lc "hostname -I | awk '{print $1}'"`, {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    if (wslIp) {
-      return `http://${wslIp}:8000`;
-    }
-  } catch {
-    // Fall back to localhost for non-WSL setups.
-  }
-
+  // WSL2 forwards port 8000 to Windows localhost — more stable than a dynamic WSL IP.
   return "http://localhost:8000";
 }
 
-const apiProxyTarget = resolveApiProxyTarget();
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "");
+  const apiProxyTarget = resolveApiProxyTarget(env);
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    host: true,
-    port: process.env.PORT ? Number(process.env.PORT) : 5173,
-    strictPort: Boolean(process.env.PORT),
-    proxy: {
-      "/api": {
-        target: apiProxyTarget,
-        changeOrigin: true,
+  return {
+    plugins: [react()],
+    server: {
+      host: true,
+      port: env.PORT ? Number(env.PORT) : 5173,
+      strictPort: Boolean(env.PORT),
+      proxy: {
+        "/api": {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
       },
     },
-  },
+  };
 });
