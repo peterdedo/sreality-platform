@@ -1,6 +1,5 @@
-# Build context must be the repository root (Railway default without Root Directory).
-# docker-compose.yml uses: context: .  dockerfile: backend/Dockerfile
-FROM python:3.12-slim
+# Build context = repository root (Railway default). docker-compose uses the same paths.
+FROM mcr.microsoft.com/playwright/python:v1.49.1-jammy
 
 WORKDIR /app
 
@@ -9,8 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt \
-    && playwright install --with-deps chromium
+# Chromium is preinstalled in the Playwright base image — skip playwright install --with-deps.
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ .
 
