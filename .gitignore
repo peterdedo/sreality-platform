@@ -13,3 +13,5 @@ frontend/dist/
 test-results/
 .tmp_video_frames/
 tmp_frames/
+
+.vercel
