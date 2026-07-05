@@ -1,0 +1,15 @@
+.git
+.github
+.vercel
+frontend/node_modules
+frontend/dist
+backend/__pycache__
+backend/.pytest_cache
+backend/.venv
+**/.env
+**/.env.*
+!**/.env.example
+*.md
+test-results
+.pytest_cache
+node_modules

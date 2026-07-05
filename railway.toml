@@ -1,15 +1,15 @@
 # Railway — backend API (frontend stays on Vercel)
 #
-# Builds from monorepo root: Dockerfile lives at backend/Dockerfile.
-# Optional: set service Root Directory = backend and use backend/railway.toml instead.
+# Builds from monorepo root using ./Dockerfile (context = repo root, copies backend/).
+# Alternative: set service Root Directory = backend and use backend/railway.toml.
 #
 # Required env vars on the backend service:
 #   APP_ENV=production, API_KEY, DATABASE_URL, CORS_ORIGINS, ENABLE_SCHEDULER=true
 
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "backend/Dockerfile"
-watchPatterns = ["backend/**"]
+dockerfilePath = "Dockerfile"
+watchPatterns = ["backend/**", "Dockerfile"]
 
 [deploy]
 healthcheckPath = "/health"
