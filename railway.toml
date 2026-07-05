@@ -1,0 +1,20 @@
+# Railway — backend API (frontend stays on Vercel)
+#
+# Setup in Railway dashboard:
+#   1. New Project → Deploy from GitHub repo
+#   2. Add PostgreSQL plugin (or link Neon DATABASE_URL)
+#   3. Backend service → Settings → Root Directory = backend
+#   4. Set environment variables (see .env.example production block)
+#   5. Generate public domain → use as BACKEND_URL on Vercel
+#
+# CLI: railway login && railway link && railway up
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+watchPatterns = ["**"]
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"

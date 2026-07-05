@@ -3,6 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
 from sqlmodel import Session
 
@@ -42,6 +44,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_origin_regex=r"https://([a-z0-9-]+\.)*vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,4 +64,13 @@ app.include_router(export.router, prefix=settings.api_prefix)
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    """Liveness + DB readiness for Railway/Vercel proxy checks."""
+    try:
+        with Session(engine) as session:
+            session.exec(text("SELECT 1"))
+        return {"status": "ok", "database": "connected"}
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "degraded", "database": "unavailable"},
+        )

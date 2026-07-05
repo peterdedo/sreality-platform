@@ -66,11 +66,15 @@ export function Analytika() {
           {newVsRemoved.data && (
             <div className="flex gap-10 justify-center py-8">
               <div className="text-center">
-                <p className="text-3xl font-bold text-accent-dark tabular-nums">{newVsRemoved.data.new_count}</p>
+                <p className="text-3xl font-bold text-accent-dark tabular-nums">
+                  {newVsRemoved.data.new_count.toLocaleString("cs-CZ")}
+                </p>
                 <p className="text-ink-muted text-sm mt-1">Nové nabídky v datasetu</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-danger tabular-nums">{newVsRemoved.data.removed_count}</p>
+                <p className="text-3xl font-bold text-danger tabular-nums">
+                  {newVsRemoved.data.removed_count.toLocaleString("cs-CZ")}
+                </p>
                 <p className="text-ink-muted text-sm mt-1">Stažené nabídky z datasetu</p>
               </div>
             </div>

@@ -1,4 +1,6 @@
 import type { PropsWithChildren, ReactNode } from "react";
+import { isBackendConnectivityFailure } from "../../api/connectivity";
+import { useSuppressConnectivityErrors } from "../../context/BackendStatusProvider";
 import type { KpiInterpretation } from "../../kpi/types";
 import type { BannerVariant } from "../../theme/tokens";
 import { KpiInterpretationLine } from "../kpi/KpiInterpretationLine";
@@ -46,6 +48,13 @@ type KpiProps = {
 };
 
 export function KpiCard({ label, value, tone = "default", loading, error, hint, interpretation }: KpiProps) {
+  const suppressConnectivityErrors = useSuppressConnectivityErrors();
+  const showError = error && !(suppressConnectivityErrors && isBackendConnectivityFailure(error));
+
+  // Group integers the Czech way (105 310) so the headline value matches the
+  // grouped numbers used in every supporting line; pre-formatted strings
+  // (e.g. "27 %", "…", "—") pass through untouched.
+  const displayValue = typeof value === "number" ? value.toLocaleString("cs-CZ") : value;
   const toneClass =
     tone === "brand" ? "kpi-card--brand" : tone === "danger" ? "kpi-card--danger" : tone === "accent" ? "kpi-card--accent" : "";
   const valueClass =
@@ -65,12 +74,12 @@ export function KpiCard({ label, value, tone = "default", loading, error, hint, 
         <div className="mt-3">
           <span className="loading-shimmer loading-shimmer--kpi" />
         </div>
-      ) : error ? (
+      ) : showError ? (
         <p className="text-danger text-sm mt-2 font-medium">{error}</p>
       ) : (
         <>
-          <p className={valueClass}>{value}</p>
-          {interpretation && !loading && !error && <KpiInterpretationLine interpretation={interpretation} />}
+          <p className={valueClass}>{displayValue}</p>
+          {interpretation && !loading && !showError && <KpiInterpretationLine interpretation={interpretation} />}
           {!interpretation && hint && <p className="kpi-card__hint">{hint}</p>}
         </>
       )}

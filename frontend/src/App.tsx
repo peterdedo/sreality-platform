@@ -1,7 +1,9 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
+import { BackendUnavailableBanner } from "./components/layout/BackendUnavailableBanner";
 import { NavBar } from "./components/layout/NavBar";
 import { PageRouteFallback } from "./components/layout/PageRouteFallback";
+import { BackendStatusProvider } from "./context/BackendStatusProvider";
 import { PrehledTrhu } from "./pages/PrehledTrhu";
 import { Nabidky } from "./pages/Nabidky";
 import { DetailNabidky } from "./pages/DetailNabidky";
@@ -18,8 +20,10 @@ const SpravaScrapingu = lazy(() =>
 
 export default function App() {
   return (
+    <BackendStatusProvider>
     <div className="min-h-screen bg-app-gradient app-canvas">
       <NavBar />
+      <BackendUnavailableBanner />
       <Suspense fallback={<PageRouteFallback />}>
         <Routes>
           <Route path="/" element={<PrehledTrhu />} />
@@ -33,5 +37,6 @@ export default function App() {
         </Routes>
       </Suspense>
     </div>
+    </BackendStatusProvider>
   );
 }

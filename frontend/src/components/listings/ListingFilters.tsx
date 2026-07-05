@@ -3,6 +3,7 @@ import { DEAL_TYPES, PROPERTY_TYPES, ROOM_LAYOUTS } from "../../constants";
 import { cs } from "../../locale/cs";
 import type { ListingFilters as Filters } from "../../api/client";
 import { AdvancedFiltersPanel } from "./AdvancedFiltersPanel";
+import { LocationFilterField } from "./LocationFilterField";
 
 interface Props {
   value: Filters;
@@ -19,16 +20,7 @@ export function ListingFiltersBar({ value, onChange }: Props) {
   return (
     <>
       <div className="filter-panel">
-        <div>
-          <label className="field-label">{cs.listings.hledat}</label>
-          <input
-            type="search"
-            placeholder={cs.listings.hledatPlaceholder}
-            className="input-field w-56"
-            value={value.search ?? ""}
-            onChange={(e) => update({ search: e.target.value || undefined })}
-          />
-        </div>
+        <LocationFilterField value={value} onChange={onChange} />
 
         <div>
           <label className="field-label">{cs.listings.typNemovitosti}</label>

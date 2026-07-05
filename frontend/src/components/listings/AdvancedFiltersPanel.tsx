@@ -183,6 +183,7 @@ export function AdvancedFiltersPanel({ value, onChange }: Props) {
         <input
           type="text"
           className="select-field w-full"
+          placeholder={cs.listings.krajPlaceholder}
           value={value.region ?? ""}
           onChange={(e) => update({ region: e.target.value || undefined })}
         />

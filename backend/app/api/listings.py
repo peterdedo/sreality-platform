@@ -11,7 +11,13 @@ from app.domain import codebooks
 from app.models import Image, Listing, ListingDetail, Location, PriceHistory
 from app.schemas.listing import ListingDetailRead, ListingRead, ListingsPage
 from app.schemas.map import MapMarker, MapMarkersPage
-from app.scraping.sreality_url import resolve_public_source_url
+from app.api.listing_filters import (
+    listing_city_condition,
+    listing_district_condition,
+    listing_region_condition,
+    listing_text_search_condition,
+    location_suggest,
+)
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
@@ -214,13 +220,11 @@ def build_listings_filter_query(
         base = base.where(ListingDetail.parking_lots > 0 if has_parking else or_(ListingDetail.parking_lots.is_(None), ListingDetail.parking_lots == 0))
 
     if region is not None:
-        base = base.where(
-            func.coalesce(Listing.resolved_region_name, Location.region).ilike(f"%{region}%")
-        )
+        base = base.where(listing_region_condition(region))
     if district is not None:
-        base = base.where(Location.district.ilike(f"%{district}%"))
+        base = base.where(listing_district_condition(district))
     if city is not None:
-        base = base.where(Location.municipality.ilike(f"%{city}%"))
+        base = base.where(listing_city_condition(city))
     if seller_type is not None:
         base = base.where(Listing.seller_type == seller_type)
 
@@ -259,8 +263,7 @@ def build_listings_filter_query(
             base = base.where(Listing.id.not_in(drop_ids))
 
     if search:
-        pattern = f"%{search}%"
-        base = base.where(or_(Listing.title.ilike(pattern), Listing.locality_text.ilike(pattern)))
+        base = base.where(listing_text_search_condition(search))
 
     return base
 
@@ -365,6 +368,15 @@ def map_markers(
     return MapMarkersPage(items=items, total=total, truncated=total > len(rows))
 
 
+@router.get("/location-suggest", summary="Návrhy lokalit pro filtr nabídek")
+def get_location_suggest(
+    q: str = Query("", min_length=0, description="Dotaz pro našeptávání"),
+    limit: int = Query(15, ge=1, le=30),
+    session: Session = Depends(get_session),
+):
+    return {"items": location_suggest(session, q, limit=limit)}
+
+
 @router.get("", response_model=ListingsPage, summary="List nabídek s filtry")
 def list_listings(
     session: Session = Depends(get_session),
@@ -402,7 +414,7 @@ def list_listings(
     days_on_market_min: Optional[int] = None,
     days_on_market_max: Optional[int] = None,
     has_price_drop: Optional[bool] = None,
-    search: Optional[str] = Query(None, description="Fulltext search over title and locality_text"),
+    search: Optional[str] = Query(None, description="Fulltext v názvu, lokalitě, kraji, okrese a čtvrti"),
     is_active: bool = True,
     sort_by: Optional[str] = Query(None, description=f"Jedna z: {', '.join(_SORTABLE_COLUMNS)}"),
     sort_dir: str = Query("desc", pattern="^(asc|desc)$"),

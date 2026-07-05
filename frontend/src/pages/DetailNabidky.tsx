@@ -21,7 +21,9 @@ export function DetailNabidky() {
       </Link>
 
       {loading && <LoadingState />}
-      {error && <ErrorState message={error.message} />}
+      {error && (
+        <ErrorState message={/\b404\b/.test(error.message) ? cs.detail.nenalezeno : error.message} />
+      )}
 
       {data && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

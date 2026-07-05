@@ -317,6 +317,24 @@ body {
     box-shadow: var(--shadow-card-premium);
   }
 
+  .location-filter {
+    @apply relative flex flex-wrap gap-3 items-end;
+  }
+
+  .location-filter__suggestions {
+    @apply absolute left-0 top-full z-40 mt-1 min-w-[16rem] max-w-[22rem] max-h-64 overflow-y-auto
+      rounded-xl border border-surface-border bg-surface shadow-card-premium py-1 list-none m-0;
+  }
+
+  .location-filter__option {
+    @apply w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-sm
+      hover:bg-surface-muted transition-colors border-0 bg-transparent cursor-pointer;
+  }
+
+  .location-filter__kind {
+    @apply text-[10px] uppercase tracking-wide text-ink-muted shrink-0;
+  }
+
   .card {
     @apply bg-surface border border-surface-border rounded-xl p-5 shadow-card;
   }

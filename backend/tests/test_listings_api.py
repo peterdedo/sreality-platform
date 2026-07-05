@@ -198,6 +198,20 @@ def test_search_filter_matches_title_and_locality(client, session):
     resp = client.get(LISTINGS_PATH, params={"search": "Smíchov"})
     assert {item["id"] for item in resp.json()["items"]} == {cheap.id}
 
+    resp = client.get(LISTINGS_PATH, params={"search": "Praha 5"})
+    assert {item["id"] for item in resp.json()["items"]} == {cheap.id}
+
+    resp = client.get(LISTINGS_PATH, params={"search": "Hlavní město Praha"})
+    assert {item["id"] for item in resp.json()["items"]} == {cheap.id}
+
+
+def test_location_suggest_endpoint(client, session):
+    _seed(session)
+    resp = client.get(f"{LISTINGS_PATH}/location-suggest", params={"q": "Pra"})
+    assert resp.status_code == 200
+    labels = {item["label"] for item in resp.json()["items"]}
+    assert any("Praha" in label for label in labels)
+
 
 def test_sort_by_price_per_m2(client, session):
     cheap, dropped = _seed(session)

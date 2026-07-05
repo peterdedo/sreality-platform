@@ -107,6 +107,15 @@ export interface ListingFilters {
   page_size?: number;
 }
 
+export interface LocationSuggestion {
+  label: string;
+  kind: "kraj" | "okres" | "obec" | "ctvrt" | "lokalita";
+  region?: string;
+  district?: string;
+  city?: string;
+  search?: string;
+}
+
 function toQuery(params: object): string {
   const usp = new URLSearchParams();
   for (const [key, value] of Object.entries(params as Record<string, unknown>)) {
@@ -154,6 +163,8 @@ const LISTINGS_BULK_PAGE_SIZE = 1000;
 export const api = {
   listings: (filters: ListingFilters = {}) =>
     getJson<ListingsPage>(`/listings${toQuery(filters)}`),
+  locationSuggest: (q: string, limit = 15) =>
+    getJson<{ items: LocationSuggestion[] }>(`/listings/location-suggest${toQuery({ q, limit })}`),
   mapMarkers: (params: {
     is_active?: boolean;
     south?: number;

@@ -1,0 +1,6 @@
+.vercel
+dist
+*.tsbuildinfo
+.env
+.env.*
+!.env.example

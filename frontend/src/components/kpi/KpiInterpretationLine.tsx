@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { stateChipLabel } from "../../kpi/model";
+import { cs } from "../../locale/cs";
 import type { KpiInterpretation } from "../../kpi/types";
 
 type Props = {
@@ -6,13 +8,20 @@ type Props = {
 };
 
 export function KpiInterpretationLine({ interpretation }: Props) {
-  const { meaning, benchmark, direction, directionLabel, nextStep, nextStepLink, limited } = interpretation;
+  const { meaning, benchmark, direction, directionLabel, nextStep, nextStepLink, limited, state, confidence } =
+    interpretation;
+
+  // Prefer the explicit model chip (baseline / ingest / málo historie /
+  // orientační); fall back to the legacy "Omezený vzorek" only for readings
+  // not yet migrated to the interpretation model.
+  const chip =
+    state && confidence ? stateChipLabel(state, confidence) : limited ? cs.kpiInterpret.stavChip.orientacni : null;
 
   return (
     <div className="kpi-interp">
       <div className="kpi-interp__head">
         <span className={`kpi-interp__badge kpi-interp__badge--${direction}`}>{directionLabel}</span>
-        {limited && <span className="kpi-interp__limited">Omezený vzorek</span>}
+        {chip && <span className="kpi-interp__limited">{chip}</span>}
       </div>
       <p className="kpi-interp__meaning">{meaning}</p>
       {benchmark && <p className="kpi-interp__benchmark">{benchmark}</p>}

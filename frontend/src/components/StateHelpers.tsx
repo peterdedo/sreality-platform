@@ -1,3 +1,5 @@
+import { isBackendConnectivityFailure } from "../api/connectivity";
+import { useSuppressConnectivityErrors } from "../context/BackendStatusProvider";
 import { cs } from "../locale/cs";
 
 export function LoadingState() {
@@ -11,7 +13,12 @@ export function LoadingState() {
 }
 
 export function ErrorState({ message }: { message?: string }) {
+  const suppress = useSuppressConnectivityErrors();
   const isTimeout = Boolean(message && /neodpov[?i]d|timeout|vypr?el/i.test(message));
+
+  if (suppress && message && isBackendConnectivityFailure(message)) {
+    return null;
+  }
 
   return (
     <div className="status-banner status-banner--error status-banner--emphasis text-center py-10 my-2">

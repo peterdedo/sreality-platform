@@ -17,6 +17,16 @@ export const cs = {
     zavritMenu: "Zavřít navigaci",
     mobilniNavigace: "Mobilní navigace",
   },
+  backend: {
+    title: "Backend API není dostupné",
+    notConfigured:
+      "Frontend běží na Vercel, ale požadavky na /api/* nemají kam směřovat. Nastavte proměnnou BACKEND_URL na Vercel a nasaďte backend (např. Railway) s databází.",
+    unavailable:
+      "Backend API neodpovídá nebo vrací chybu. Ověřte, že služba na Railway běží, databáze je dostupná a migrace proběhly.",
+    timeout: "Backend API neodpověděl včas. Služba může startovat po deployi — zkuste obnovit za chvíli.",
+    hint: "Po nastavení BACKEND_URL a redeployi frontendu by měly fungovat adresy /health a /api/analytics/dataset-summary.",
+    retry: "Zkusit znovu",
+  },
   jobs: {
     scraping: "Scraping běží",
     recompute: "Přepočet analýz",
@@ -112,17 +122,28 @@ export const cs = {
     bezHistorieSnapshotu: "Historické srovnání zatím není k dispozici (chybí přepočet trhu).",
     bezPredchozihoSnapshotu: "K dispozici je jen jeden snapshot — srovnání s minulostí zatím nejde.",
     bezSrovnani: "Referenční srovnání pro toto období není k dispozici.",
+    // Kompaktní štítek u KPI, když je interpretovatelnost snížená (viz kpi/model.ts).
+    stavChip: {
+      baseline: "Bez trendu",
+      ingestDominated: "Vliv importu",
+      malaHistorie: "Málo historie",
+      orientacni: "Orientační",
+    },
     aktivni: {
       vyznam: "Kolik inzerátů je právě aktivních v lokálním datasetu (ne na celém Sreality.cz).",
       vyznamProbiha: "Počet se mění — scraping právě doplňuje dataset.",
       vyznamPartial: "Aktivních {active} nabídek, ale dataset je záměrně neúplný.",
       srovnaniSnapshot: "Oproti předchozímu snapshotu ({date}): {delta}.",
+      baselineNesrovnatelny:
+        "Předchozí snapshot ({date}) je z doby budování datasetu — meziobdobové srovnání zatím není smysluplné.",
       dalsiNabidky: "Prohlédněte konkrétní nabídky",
       dalsiScraping: "Sledujte průběh ve Správě scrapingu",
     },
     nove: {
       vyznam: "Nově stažené nabídky za posledních 30 dní — ne nutně nové na trhu.",
       benchmark: "Čistý pohyb {net} (nové {new}, stažené {removed}).",
+      ingestDominuje:
+        "Většina nabídek byla do datasetu stažena při prvním kompletním scrapingu — nejde o pohyb na trhu.",
       dalsi: "Trend a grafy najdete v",
     },
     stazene: {
@@ -160,6 +181,8 @@ export const cs = {
     },
     advanced: {
       srovnaniSnapshot: "Oproti předchozímu přepočtu: {delta}.",
+      baselineNesrovnatelny:
+        "Předchozí přepočet je z doby budování datasetu — srovnání zatím není smysluplné.",
       dalsi: "Detail segmentů a tabulky v",
       medianDom: {
         vyznam: "Typická doba, po kterou nabídka zůstává aktivní v datasetu.",
@@ -192,6 +215,10 @@ export const cs = {
     titulek: "Nabídky",
     podtitulek: "Prohlížení, filtrování a export aktivních nabídek z lokálního datasetu.",
     lokalita: "Lokalita",
+    lokalitaPlaceholder: "Např. Praha 5, Smíchov, Brno…",
+    lokalitaNapoveda: "Hledá v názvu, adrese, kraji, okrese i čtvrti.",
+    vseKraje: "Všechny kraje",
+    krajPlaceholder: "Např. Praha 5",
     typNemovitosti: "Typ nemovitosti",
     typNabidky: "Typ nabídky",
     dispozice: "Dispozice",
@@ -274,6 +301,7 @@ export const cs = {
   },
   detail: {
     titulek: "Detail nabídky",
+    nenalezeno: "Nabídka nebyla nalezena. Možná už byla stažena z datasetu.",
     popis: "Popis",
     plochaUzitna: "Užitná plocha",
     podlazi: "Podlaží",
