@@ -12,9 +12,18 @@ export function BackendUnavailableBanner() {
   const copy =
     unavailableReason === "not_configured"
       ? cs.backend.notConfigured
-      : unavailableReason === "timeout"
-        ? cs.backend.timeout
-        : cs.backend.unavailable;
+      : unavailableReason === "database_unavailable"
+        ? cs.backend.databaseUnavailable
+        : unavailableReason === "timeout"
+          ? cs.backend.timeout
+          : cs.backend.unavailable;
+
+  const hint =
+    unavailableReason === "not_configured"
+      ? cs.backend.hintNotConfigured
+      : unavailableReason === "database_unavailable"
+        ? cs.backend.hintDatabase
+        : cs.backend.hintDown;
 
   return (
     <StatusBanner variant="warning" className="backend-unavailable-banner mx-4 mt-4 max-w-6xl lg:mx-auto">
@@ -22,7 +31,7 @@ export function BackendUnavailableBanner() {
         <div>
           <p className="font-semibold">{cs.backend.title}</p>
           <p className="mt-1 text-sm opacity-90">{copy}</p>
-          <p className="mt-2 text-xs opacity-75">{cs.backend.hint}</p>
+          <p className="mt-2 text-xs opacity-75">{hint}</p>
         </div>
         <button type="button" className="btn-secondary shrink-0 self-start" onClick={retry}>
           {cs.backend.retry}

@@ -3,7 +3,7 @@
 export type BackendReachability =
   | { state: "checking" }
   | { state: "available" }
-  | { state: "unavailable"; reason: "not_configured" | "down" | "timeout" };
+  | { state: "unavailable"; reason: "not_configured" | "database_unavailable" | "down" | "timeout" };
 
 const PROBE_TIMEOUT_MS = 8_000;
 
@@ -17,16 +17,19 @@ async function fetchWithTimeout(url: string, timeoutMs = PROBE_TIMEOUT_MS): Prom
   }
 }
 
-async function probeHealthEndpoint(): Promise<boolean> {
+async function probeHealthEndpoint(): Promise<"ok" | "database_unavailable" | "unreachable"> {
   try {
     const res = await fetchWithTimeout("/health");
-    if (!res.ok) return false;
     const contentType = res.headers.get("content-type") ?? "";
-    if (!contentType.includes("application/json")) return false;
-    const body = (await res.json()) as { status?: string };
-    return body.status === "ok";
+    if (!contentType.includes("application/json")) return "unreachable";
+    const body = (await res.json()) as { status?: string; database?: string };
+    if (res.ok && body.status === "ok") return "ok";
+    if (body.status === "degraded" && body.database === "unavailable") {
+      return "database_unavailable";
+    }
+    return "unreachable";
   } catch {
-    return false;
+    return "unreachable";
   }
 }
 
@@ -42,8 +45,10 @@ async function probeDatasetSummary(): Promise<boolean> {
 
 /** Try /health (Railway + Vercel proxy), then /api/analytics/dataset-summary. */
 export async function probeBackendReachability(): Promise<BackendReachability> {
-  if (await probeHealthEndpoint()) {
-    return { state: "available" };
+  const health = await probeHealthEndpoint();
+  if (health === "ok") return { state: "available" };
+  if (health === "database_unavailable") {
+    return { state: "unavailable", reason: "database_unavailable" };
   }
 
   try {

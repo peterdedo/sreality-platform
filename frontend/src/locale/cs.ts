@@ -21,10 +21,16 @@ export const cs = {
     title: "Backend API není dostupné",
     notConfigured:
       "Frontend běží na Vercel, ale požadavky na /api/* nemají kam směřovat. Nastavte proměnnou BACKEND_URL na Vercel a nasaďte backend (např. Railway) s databází.",
+    databaseUnavailable:
+      "Backend na Railway běží, ale PostgreSQL je nedostupná (služba Postgres je Offline po havárii disku). V Railway dashboardu otevřete službu Postgres a klikněte Deploy nebo Restart.",
     unavailable:
       "Backend API neodpovídá nebo vrací chybu. Ověřte, že služba na Railway běží, databáze je dostupná a migrace proběhly.",
     timeout: "Backend API neodpověděl včas. Služba může startovat po deployi — zkuste obnovit za chvíli.",
-    hint: "Po nastavení BACKEND_URL a redeployi frontendu by měly fungovat adresy /health a /api/analytics/dataset-summary.",
+    hintDatabase:
+      "Po restartu Postgres by /health měl vrátit {\"status\":\"ok\",\"database\":\"connected\"}. Pak obnovte stránku.",
+    hintNotConfigured:
+      "Po nastavení BACKEND_URL a redeployi frontendu by měly fungovat adresy /health a /api/analytics/dataset-summary.",
+    hintDown: "Ověřte stav služeb sreality-platform a Postgres v Railway projektu vivacious-wholeness.",
     retry: "Zkusit znovu",
   },
   jobs: {

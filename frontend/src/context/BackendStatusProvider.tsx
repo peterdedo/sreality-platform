@@ -13,7 +13,7 @@ type BackendStatusContextValue = {
   /** True when production probe detected missing or unreachable backend. */
   backendUnavailable: boolean;
   /** Reason from the last failed probe (production only). */
-  unavailableReason: "not_configured" | "down" | "timeout" | null;
+  unavailableReason: "not_configured" | "database_unavailable" | "down" | "timeout" | null;
   checking: boolean;
   retry: () => void;
 };
