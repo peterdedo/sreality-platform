@@ -1,8 +1,15 @@
 {
-  "installCommand": "node scripts/write-vercel-routes.mjs && npm install",
   "buildCommand": "tsc -b && vite build",
   "outputDirectory": "dist",
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://sreality-platform-production.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://sreality-platform-production.up.railway.app/health"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
