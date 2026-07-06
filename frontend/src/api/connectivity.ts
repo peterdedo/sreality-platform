@@ -5,7 +5,7 @@ export type BackendReachability =
   | { state: "available" }
   | { state: "unavailable"; reason: "not_configured" | "database_unavailable" | "down" | "timeout" };
 
-const PROBE_TIMEOUT_MS = 8_000;
+const PROBE_TIMEOUT_MS = 25_000;
 
 async function fetchWithTimeout(url: string, timeoutMs = PROBE_TIMEOUT_MS): Promise<Response> {
   const controller = new AbortController();

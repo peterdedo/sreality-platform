@@ -25,7 +25,7 @@ export const cs = {
       "Backend na Railway běží, ale PostgreSQL je nedostupná (služba Postgres je Offline po havárii disku). V Railway dashboardu otevřete službu Postgres a klikněte Deploy nebo Restart.",
     unavailable:
       "Backend API neodpovídá nebo vrací chybu. Ověřte, že služba na Railway běží, databáze je dostupná a migrace proběhly.",
-    timeout: "Backend API neodpověděl včas. Služba může startovat po deployi — zkuste obnovit za chvíli.",
+    timeout: "Backend API neodpověděl včas — může být zaneprázdněný dlouhým scrapingem na Railway. Zkuste obnovit za chvíli.",
     hintDatabase:
       "Po restartu Postgres by /health měl vrátit {\"status\":\"ok\",\"database\":\"connected\"}. Pak obnovte stránku.",
     hintNotConfigured:

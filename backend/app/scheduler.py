@@ -22,6 +22,8 @@ from sqlmodel import Session
 from app.analytics.advanced.pipeline import run_full_recompute
 from app.core.config import settings
 from app.core.db import engine
+from app.scraping.locks import BACKFILL_LOCK_ID
+from app.scraping.orphan_runs import _is_advisory_lock_held
 from app.scraping.pipeline import run_incremental_scrape
 
 logger = logging.getLogger(__name__)
@@ -29,21 +31,31 @@ logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
 
+def _run_incremental_scrape_sync() -> None:
+    async def _run() -> None:
+        with Session(engine) as session:
+            await run_incremental_scrape(session)
+
+    asyncio.run(_run())
+
+
 async def _scheduled_incremental_scrape() -> None:
-    logger.info("Scheduled incremental scrape starting")
     with Session(engine) as session:
-        await run_incremental_scrape(session)
+        if _is_advisory_lock_held(session, BACKFILL_LOCK_ID):
+            logger.info("Skipping scheduled incremental scrape — detail backfill in progress")
+            return
+    logger.info("Scheduled incremental scrape starting")
+    await asyncio.to_thread(_run_incremental_scrape_sync)
     logger.info("Scheduled incremental scrape finished")
 
 
 async def _scheduled_full_scrape() -> None:
-    # There is a single scrape orchestrator (run_incremental_scrape) which
-    # already performs the complete 15-category sweep + delisting detection;
-    # the daily "full" cadence reuses it. Kept as a distinct job id so the
-    # cadence is independently configurable and visible in run history.
-    logger.info("Scheduled full scrape starting")
     with Session(engine) as session:
-        await run_incremental_scrape(session)
+        if _is_advisory_lock_held(session, BACKFILL_LOCK_ID):
+            logger.info("Skipping scheduled full scrape — detail backfill in progress")
+            return
+    logger.info("Scheduled full scrape starting")
+    await asyncio.to_thread(_run_incremental_scrape_sync)
     logger.info("Scheduled full scrape finished")
 
 

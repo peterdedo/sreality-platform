@@ -1,5 +1,7 @@
 """Admin/control endpoints backing the Správa scrapingu (scraping admin) panel."""
 
+import asyncio
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlmodel import Session, select
 
@@ -77,14 +79,20 @@ def list_run_items(run_id: int, limit: int = Query(200, ge=1, le=2000), session:
     return session.exec(stmt).all()
 
 
-async def _run_in_background():
-    with Session(engine) as session:
-        await run_incremental_scrape(session)
+def _run_incremental_scrape_in_background() -> None:
+    async def _run() -> None:
+        with Session(engine) as session:
+            await run_incremental_scrape(session)
+
+    asyncio.run(_run())
 
 
-async def _run_missing_detail_backfill_in_background():
-    with Session(engine) as session:
-        await run_missing_detail_backfill(session)
+def _run_missing_detail_backfill_in_background() -> None:
+    async def _run() -> None:
+        with Session(engine) as session:
+            await run_missing_detail_backfill(session)
+
+    asyncio.run(_run())
 
 
 @router.post(
@@ -94,7 +102,7 @@ async def _run_missing_detail_backfill_in_background():
     dependencies=[Depends(require_api_key), Depends(heavy_endpoint_limiter)],
 )
 def trigger_scrape(background_tasks: BackgroundTasks):
-    background_tasks.add_task(_run_in_background)
+    background_tasks.add_task(_run_incremental_scrape_in_background)
     return TriggerRunResponse(message="Scraping byl spuštěn na pozadí.")
 
 
