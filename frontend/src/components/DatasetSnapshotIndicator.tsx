@@ -27,6 +27,9 @@ export function DatasetSnapshotIndicator({ summary, compact = false, essentialOn
         <span>
           {cs.dataset.aktualizaceSnapshotu}: {updated}
           {summary.running_scrape ? ` · ${cs.dataset.behCislo.replace("{runId}", String(summary.running_scrape.id))}` : ""}
+          {summary.running_detail_backfill && !summary.running_scrape
+            ? ` · ${cs.dataset.behCislo.replace("{runId}", String(summary.running_detail_backfill.id))}`
+            : ""}
         </span>
       </div>
     );
@@ -43,6 +46,12 @@ export function DatasetSnapshotIndicator({ summary, compact = false, essentialOn
           <span className="text-ink-muted text-xs">
             · {cs.dataset.behCislo.replace("{runId}", String(summary.running_scrape.id))}
             · {summary.running_scrape.items_seen.toLocaleString("cs-CZ")} {cs.dataset.zpracovanoPolozek}
+          </span>
+        )}
+        {summary.running_detail_backfill && !summary.running_scrape && (
+          <span className="text-ink-muted text-xs">
+            · {cs.dataset.behCislo.replace("{runId}", String(summary.running_detail_backfill.id))}
+            · {summary.running_detail_backfill.items_seen.toLocaleString("cs-CZ")} {cs.dataset.zpracovanoPolozek}
           </span>
         )}
       </div>

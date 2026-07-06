@@ -161,16 +161,35 @@ def _running_sweep(session: Session) -> ScrapingRun | None:
     ).first()
 
 
+def _running_detail_backfill(session: Session) -> ScrapingRun | None:
+    return session.exec(
+        select(ScrapingRun)
+        .where(
+            ScrapingRun.run_type == RunType.detail_backfill,
+            ScrapingRun.status == RunStatus.running,
+        )
+        .order_by(ScrapingRun.id.desc())
+    ).first()
+
+
 def assess_dataset_freshness(
     session: Session,
     *,
     running_sweep: ScrapingRun | None = None,
+    running_detail_backfill: ScrapingRun | None = None,
     completeness: str | None = None,
 ) -> str:
-    """``empty`` | ``in_progress`` | ``final_complete`` | ``final_partial``."""
+    """``empty`` | ``in_progress`` | ``detail_enrichment`` | ``final_complete`` | ``final_partial``."""
     running_sweep = running_sweep if running_sweep is not None else _running_sweep(session)
+    running_detail_backfill = (
+        running_detail_backfill
+        if running_detail_backfill is not None
+        else _running_detail_backfill(session)
+    )
     if running_sweep is not None:
         return "in_progress"
+    if running_detail_backfill is not None:
+        return "detail_enrichment"
     if completeness is None:
         completeness = assess_dataset_completeness(session)
     if completeness == "empty":
@@ -272,6 +291,7 @@ def build_count_reconciliation_report(session: Session, *, sreality_totals: dict
     inv_sum = sum(row["listing_count"] for row in inventory_by_region(session))
     last_full = _last_full_sweep(session)
     running = _running_sweep(session)
+    running_detail_backfill = _running_detail_backfill(session)
 
     partial_runs = session.exec(
         select(ScrapingRun)
@@ -312,7 +332,12 @@ def build_count_reconciliation_report(session: Session, *, sreality_totals: dict
         active_slice_count=int(slice_count),
         last_full_sweep=last_full,
     )
-    freshness = assess_dataset_freshness(session, running_sweep=running, completeness=completeness)
+    freshness = assess_dataset_freshness(
+        session,
+        running_sweep=running,
+        running_detail_backfill=running_detail_backfill,
+        completeness=completeness,
+    )
 
     run_items_seen = running.items_seen if running else None
     db_vs_run = (int(db_active) - run_items_seen) if run_items_seen is not None else None
@@ -324,10 +349,15 @@ def build_count_reconciliation_report(session: Session, *, sreality_totals: dict
         safe_to_compare_with_sreality_total,
     )
 
-    last_update = get_last_dataset_update_at(session, running_sweep=running)
+    last_update = get_last_dataset_update_at(
+        session,
+        running_sweep=running,
+        running_detail_backfill=running_detail_backfill,
+    )
     snapshot_meta = build_snapshot_metadata(
         freshness=freshness,
         running_sweep=running,
+        running_detail_backfill=running_detail_backfill,
         last_full_sweep_at=last_full.finished_at if last_full else None,
         last_dataset_update_at=last_update,
     )

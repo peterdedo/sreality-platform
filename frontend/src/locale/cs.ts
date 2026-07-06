@@ -81,6 +81,7 @@ export const cs = {
     stavSnapshotu: {
       empty: "Prázdný dataset",
       in_progress: "Průběžný snapshot — scraping běží",
+      detail_enrichment: "Doplňování detailů — průběžný snapshot",
       final_complete: "Konečný snapshot — úplný dataset",
       final_partial: "Konečný snapshot — neúplný dataset",
     },

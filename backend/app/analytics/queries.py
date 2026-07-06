@@ -12,6 +12,7 @@ from app.scraping.count_reconciliation import (
     EXPECTED_CATEGORY_SLICES,
     _active_category_slice_count,
     _last_full_sweep,
+    _running_detail_backfill,
     _running_sweep,
     assess_dataset_completeness,
     assess_dataset_freshness,
@@ -139,6 +140,7 @@ def dataset_summary(session: Session) -> dict:
 
     last_full_sweep = _last_full_sweep(session)
     running_sweep = _running_sweep(session)
+    running_detail_backfill = _running_detail_backfill(session)
     active_slice_count = _active_category_slice_count(session)
     completeness = assess_dataset_completeness(
         session,
@@ -149,12 +151,18 @@ def dataset_summary(session: Session) -> dict:
     freshness = assess_dataset_freshness(
         session,
         running_sweep=running_sweep,
+        running_detail_backfill=running_detail_backfill,
         completeness=completeness,
     )
-    last_update = get_last_dataset_update_at(session, running_sweep=running_sweep)
+    last_update = get_last_dataset_update_at(
+        session,
+        running_sweep=running_sweep,
+        running_detail_backfill=running_detail_backfill,
+    )
     snapshot_meta = build_snapshot_metadata(
         freshness=freshness,
         running_sweep=running_sweep,
+        running_detail_backfill=running_detail_backfill,
         last_full_sweep_at=last_full_sweep.finished_at if last_full_sweep else None,
         last_successful_scrape_at=last_success.finished_at if last_success else None,
         last_dataset_update_at=last_update,
@@ -203,6 +211,16 @@ def dataset_summary(session: Session) -> dict:
                 "items_new": running_sweep.items_new,
             }
             if running_sweep
+            else None
+        ),
+        "running_detail_backfill": (
+            {
+                "id": running_detail_backfill.id,
+                "started_at": running_detail_backfill.started_at,
+                "items_seen": running_detail_backfill.items_seen,
+                "error_count": running_detail_backfill.error_count,
+            }
+            if running_detail_backfill
             else None
         ),
         "schema_revision": schema_revision,

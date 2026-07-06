@@ -79,6 +79,20 @@ def test_freshness_final_complete_after_successful_sweep(session: Session):
     assert safe_to_compare_with_sreality_total("final_complete")
 
 
+def test_freshness_detail_enrichment_while_backfill_runs(session: Session):
+    session.add(Listing(hash_id="a", category_main_cb=1, category_type_cb=1, is_active=True))
+    session.add(
+        ScrapingRun(
+            run_type=RunType.detail_backfill,
+            status=RunStatus.running,
+            items_seen=100,
+        )
+    )
+    session.commit()
+    assert assess_dataset_freshness(session) == "detail_enrichment"
+    assert is_count_final("detail_enrichment")
+
+
 def test_freshness_final_partial_without_full_sweep(session: Session):
     session.add(Listing(hash_id="a", category_main_cb=1, category_type_cb=1, is_active=True))
     session.commit()

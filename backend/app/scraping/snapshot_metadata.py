@@ -6,12 +6,13 @@ from datetime import datetime
 
 from sqlmodel import Session, func, select
 
-from app.models import Listing, ScrapingRun
+from app.models import Listing, ListingDetail, ScrapingRun
 from app.models.scraping_run import RunStatus, RunType
 
 FRESHNESS_LABELS_CS: dict[str, str] = {
     "empty": "Prázdný dataset",
     "in_progress": "Průběžný snapshot — scraping běží",
+    "detail_enrichment": "Doplňování detailů — průběžný snapshot",
     "final_complete": "Konečný snapshot — úplný dataset",
     "final_partial": "Konečný snapshot — neúplný dataset",
 }
@@ -21,6 +22,10 @@ COMPARE_GUIDANCE_CS: dict[str, str] = {
     "in_progress": (
         "Počty se průběžně mění. Nesrovnávejte celkový počet v aplikaci s ~106k na Sreality.cz. "
         "Porovnání je bezpečné až po dokončení běhu, a to po jednotlivých typech nemovitostí."
+    ),
+    "detail_enrichment": (
+        "Počet aktivních nabídek je z uzavřeného listového snapshotu a teď se nemění. "
+        "Doplňují se detaily (plocha, dispozice…). Sledujte pokrytí detailů, ne celkový počet."
     ),
     "final_complete": (
         "Dataset je po úplném sweepu. Celkový počet lze porovnat se součtem Sreality API slice totals "
@@ -45,7 +50,7 @@ SLICE_STATUS_LABELS_CS: dict[str, str] = {
 
 
 def is_count_final(freshness: str) -> bool:
-    return freshness in ("final_complete", "final_partial")
+    return freshness in ("final_complete", "final_partial", "detail_enrichment")
 
 
 def safe_to_compare_with_sreality_total(freshness: str) -> bool:
@@ -54,27 +59,35 @@ def safe_to_compare_with_sreality_total(freshness: str) -> bool:
 
 
 def safe_to_compare_per_slice(freshness: str) -> bool:
-    return freshness in ("final_complete", "final_partial")
+    return freshness in ("final_complete", "final_partial", "detail_enrichment")
 
 
-def get_last_dataset_update_at(session: Session, *, running_sweep: ScrapingRun | None = None) -> datetime | None:
+def get_last_dataset_update_at(
+    session: Session,
+    *,
+    running_sweep: ScrapingRun | None = None,
+    running_detail_backfill: ScrapingRun | None = None,
+) -> datetime | None:
     latest_listing = session.exec(select(func.max(Listing.last_seen_at))).one()
-    if running_sweep is not None:
-        if latest_listing is None:
-            return running_sweep.started_at
-        if running_sweep.started_at and latest_listing:
-            return max(latest_listing, running_sweep.started_at)
-    return latest_listing
+    latest_detail = session.exec(select(func.max(ListingDetail.updated_at))).one()
+    candidates = [t for t in (latest_listing, latest_detail) if t is not None]
+    if running_sweep is not None and running_sweep.started_at:
+        candidates.append(running_sweep.started_at)
+    if running_detail_backfill is not None and running_detail_backfill.started_at:
+        candidates.append(running_detail_backfill.started_at)
+    return max(candidates) if candidates else None
 
 
 def build_snapshot_metadata(
     *,
     freshness: str,
     running_sweep: ScrapingRun | None = None,
+    running_detail_backfill: ScrapingRun | None = None,
     last_full_sweep_at: datetime | None = None,
     last_successful_scrape_at: datetime | None = None,
     last_dataset_update_at: datetime | None = None,
 ) -> dict:
+    active_run = running_sweep or running_detail_backfill
     return {
         "snapshot_state_label_cs": FRESHNESS_LABELS_CS.get(freshness, freshness),
         "is_count_final": is_count_final(freshness),
@@ -84,7 +97,7 @@ def build_snapshot_metadata(
         "last_dataset_update_at": (
             last_dataset_update_at.isoformat() if last_dataset_update_at else None
         ),
-        "snapshot_reference_run_id": running_sweep.id if running_sweep else None,
+        "snapshot_reference_run_id": active_run.id if active_run else None,
         "last_full_sweep_at": last_full_sweep_at.isoformat() if last_full_sweep_at else None,
         "last_successful_scrape_at": (
             last_successful_scrape_at.isoformat() if last_successful_scrape_at else None

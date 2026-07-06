@@ -189,7 +189,7 @@ export interface DatasetSummary {
   last_full_sweep_at?: string | null;
   last_full_sweep_items_seen?: number | null;
   dataset_completeness?: "empty" | "partial" | "complete";
-  dataset_freshness?: "empty" | "in_progress" | "final_complete" | "final_partial";
+  dataset_freshness?: "empty" | "in_progress" | "detail_enrichment" | "final_complete" | "final_partial";
   active_category_slice_count?: number;
   expected_category_slice_count?: number;
   running_scrape?: {
@@ -198,6 +198,12 @@ export interface DatasetSummary {
     items_seen: number;
     pages_fetched: number;
     items_new: number;
+  } | null;
+  running_detail_backfill?: {
+    id: number;
+    started_at: string;
+    items_seen: number;
+    error_count: number;
   } | null;
   snapshot_state_label_cs?: string;
   is_count_final?: boolean;

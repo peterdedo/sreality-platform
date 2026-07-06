@@ -41,6 +41,7 @@ export function valuationStatusPill(classification: string): string {
 export function freshnessBadgeClass(freshness: string | undefined): string {
   switch (freshness) {
     case "in_progress":
+    case "detail_enrichment":
       return "status-badge status-badge--info";
     case "final_complete":
       return "status-badge status-badge--success";
