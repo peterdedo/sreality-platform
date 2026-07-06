@@ -18,6 +18,7 @@ from app.api.listing_filters import (
     listing_text_search_condition,
     location_suggest,
 )
+from app.scraping.sreality_url import resolve_public_source_url
 
 router = APIRouter(prefix="/listings", tags=["listings"])
 
