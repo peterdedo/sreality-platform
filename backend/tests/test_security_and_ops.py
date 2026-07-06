@@ -80,7 +80,7 @@ def test_rate_limit_returns_429_after_threshold(client, monkeypatch):
     async def _noop():
         return None
 
-    monkeypatch.setattr(scraping, "_run_in_background", _noop)
+    monkeypatch.setattr(scraping, "_run_incremental_scrape_in_background", lambda: None)
 
     limiter = rate_limit.heavy_endpoint_limiter
     orig_max, orig_window = limiter.max_requests, limiter.window_seconds
