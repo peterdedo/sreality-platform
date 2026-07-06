@@ -73,6 +73,23 @@ def _is_advisory_lock_held(session: Session, lock_id: int) -> bool:
     )
 
 
+def _protected_running_run_ids(session: Session, running_runs: list[ScrapingRun]) -> set[int]:
+    """Runs that must stay ``running`` while a worker holds the advisory lock.
+
+    When the lock is held we cannot tell which DB row is the live worker, so we
+    keep only the newest ``running`` row per lock family (plus any row registered
+    in-process). Older ``running`` rows from crashed/restarted workers are stale.
+    """
+    protected = {run.id for run in running_runs if is_active_in_process(run.id)}
+    for lock_id in (SWEEP_LOCK_ID, BACKFILL_LOCK_ID):
+        if not _is_advisory_lock_held(session, lock_id):
+            continue
+        family = [run for run in running_runs if _lock_id_for_run(run) == lock_id]
+        if family:
+            protected.add(max(family, key=lambda run: run.id).id)
+    return protected
+
+
 def reconcile_orphaned_scrape_runs(
     session: Session,
     *,
@@ -83,14 +100,13 @@ def reconcile_orphaned_scrape_runs(
     now = now or datetime.utcnow()
     cutoff = now - timedelta(seconds=grace_seconds)
     running_runs = session.exec(select(ScrapingRun).where(ScrapingRun.status == RunStatus.running)).all()
+    protected_ids = _protected_running_run_ids(session, running_runs)
     closed: list[ScrapingRun] = []
 
     for run in running_runs:
-        if is_active_in_process(run.id):
+        if run.id in protected_ids:
             continue
         if run.started_at >= cutoff:
-            continue
-        if _is_advisory_lock_held(session, _lock_id_for_run(run)):
             continue
 
         run.finished_at = now

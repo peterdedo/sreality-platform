@@ -99,6 +99,23 @@ def test_reconcile_skips_in_process_active_run(session: Session):
 
 
 @patch("app.scraping.orphan_runs._is_advisory_lock_held", return_value=True)
+def test_reconcile_closes_older_running_when_lock_held_by_newer(_mock_lock, session: Session):
+    stale = _running_run(run_id=1, items_seen=100, pages_fetched=10)
+    stale.started_at = datetime.utcnow() - timedelta(hours=2)
+    current = _running_run(run_id=2, items_seen=5, pages_fetched=1)
+    current.started_at = datetime.utcnow() - timedelta(minutes=10)
+    session.add(stale)
+    session.add(current)
+    session.commit()
+
+    closed = reconcile_orphaned_scrape_runs(session, now=datetime.utcnow())
+
+    assert len(closed) == 1
+    assert closed[0].id == 1
+    assert session.get(ScrapingRun, 2).status == RunStatus.running
+
+
+@patch("app.scraping.orphan_runs._is_advisory_lock_held", return_value=True)
 def test_reconcile_skips_when_advisory_lock_held(_mock_lock, session: Session):
     run = _running_run(items_seen=50)
     session.add(run)

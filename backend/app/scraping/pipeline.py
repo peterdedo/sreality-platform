@@ -282,9 +282,9 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
                 seen_hash_ids.add(hash_id)
                 run.items_seen += 1
 
-                session.add(RawPayload(hash_id=hash_id, payload_type="list", payload=raw))
-
                 existing = session.exec(select(Listing).where(Listing.hash_id == hash_id)).first()
+                if existing is None:
+                    session.add(RawPayload(hash_id=hash_id, payload_type="list", payload=raw))
                 now = datetime.utcnow()
 
                 if existing is None:
