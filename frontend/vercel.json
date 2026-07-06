@@ -1,0 +1,11 @@
+{
+  "installCommand": "node scripts/write-vercel-routes.mjs && npm install",
+  "buildCommand": "tsc -b && vite build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
