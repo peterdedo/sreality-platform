@@ -225,6 +225,8 @@ export const cs = {
     lokalitaPlaceholder: "Např. Praha 5, Smíchov, Brno…",
     lokalitaNapoveda: "Hledá v názvu, adrese, kraji, okrese i čtvrti.",
     vseKraje: "Všechny kraje",
+    obec: "Obec",
+    vseObce: "Všechny obce",
     krajPlaceholder: "Např. Praha 5",
     typNemovitosti: "Typ nemovitosti",
     typNabidky: "Typ nabídky",

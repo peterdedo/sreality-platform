@@ -144,10 +144,19 @@ export interface InventoryRow {
   listing_count: number;
 }
 
+export interface MunicipalityRow {
+  municipality: string;
+  listing_count: number;
+}
+
 export interface InventoryByRegionResponse {
   items: InventoryRow[];
   listing_count_sum: number;
   data_scope?: string;
+}
+
+export interface MunicipalitiesResponse {
+  items: MunicipalityRow[];
 }
 
 export interface NewVsRemoved {

@@ -213,6 +213,21 @@ def test_location_suggest_endpoint(client, session):
     assert any("Praha" in label for label in labels)
 
 
+def test_municipalities_endpoint_region_scoped(client, session):
+    _seed(session)
+
+    resp = client.get(f"{LISTINGS_PATH}/municipalities")
+    assert resp.status_code == 200
+    names = {item["municipality"] for item in resp.json()["items"]}
+    assert names == {"Praha", "Brno"}
+
+    resp = client.get(f"{LISTINGS_PATH}/municipalities", params={"region": "Jihomoravský kraj"})
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert [item["municipality"] for item in items] == ["Brno"]
+    assert items[0]["listing_count"] == 1
+
+
 def test_sort_by_price_per_m2(client, session):
     cheap, dropped = _seed(session)
 

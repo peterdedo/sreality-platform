@@ -77,6 +77,35 @@ def _distinct_labels(session: Session, column, pattern: str, *, limit: int, acti
     return [row for row in session.exec(stmt).all() if row]
 
 
+def municipalities_for_filter(
+    session: Session,
+    region: Optional[str] = None,
+    *,
+    active_only: bool = True,
+) -> list[dict]:
+    """Distinct obce (municipalities) with listing counts, optionally scoped to a kraj."""
+    region_col = func.coalesce(Listing.resolved_region_name, Location.region)
+    conditions = [Location.municipality.is_not(None)]
+    if active_only:
+        conditions.append(Listing.is_active == True)  # noqa: E712
+    if region and region.strip():
+        conditions.append(region_col.ilike(_pattern(region)))
+
+    stmt = (
+        select(Location.municipality, func.count(Listing.id))
+        .select_from(Listing)
+        .join(Location, Location.id == Listing.location_id)
+        .where(*conditions)
+        .group_by(Location.municipality)
+        .order_by(func.count(Listing.id).desc(), Location.municipality)
+    )
+    return [
+        {"municipality": name, "listing_count": count}
+        for name, count in session.exec(stmt).all()
+        if name
+    ]
+
+
 def location_suggest(session: Session, query: str, *, limit: int = 15, active_only: bool = True) -> list[dict]:
     """Return locality suggestions with filter hints for the listings UI."""
     q = query.strip()

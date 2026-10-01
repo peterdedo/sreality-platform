@@ -11,6 +11,7 @@ import type {
   ListingValuationRow,
   ListingsPage,
   MarketDynamicsSnapshot,
+  MunicipalitiesResponse,
   NewVsRemoved,
   PagedRows,
   PriceDropsPage,
@@ -160,6 +161,8 @@ export const api = {
     getJson<ListingsPage>(`/listings${toQuery(filters)}`),
   locationSuggest: (q: string, limit = 15) =>
     getJson<{ items: LocationSuggestion[] }>(`/listings/location-suggest${toQuery({ q, limit })}`),
+  municipalities: (region?: string) =>
+    getJson<MunicipalitiesResponse>(`/listings/municipalities${toQuery({ region })}`),
   mapMarkers: (params: {
     is_active?: boolean;
     south?: number;

@@ -17,6 +17,7 @@ from app.api.listing_filters import (
     listing_region_condition,
     listing_text_search_condition,
     location_suggest,
+    municipalities_for_filter,
 )
 from app.scraping.sreality_url import resolve_public_source_url
 
@@ -386,6 +387,14 @@ def get_location_suggest(
     session: Session = Depends(get_session),
 ):
     return {"items": location_suggest(session, q, limit=limit)}
+
+
+@router.get("/municipalities", summary="Seznam obcí pro filtr nabídek")
+def get_municipalities(
+    region: Optional[str] = Query(None, description="Volitelný kraj — omezí obce na daný kraj"),
+    session: Session = Depends(get_session),
+):
+    return {"items": municipalities_for_filter(session, region=region)}
 
 
 @router.get("", response_model=ListingsPage, summary="List nabídek s filtry")

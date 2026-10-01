@@ -17,10 +17,6 @@ type Props = {
   onChange: (value: ListingFilters) => void;
 };
 
-function filtersToQueryText(filters: ListingFilters): string {
-  return filters.search ?? filters.district ?? filters.city ?? "";
-}
-
 function applySuggestion(base: ListingFilters, suggestion: LocationSuggestion): ListingFilters {
   const next: ListingFilters = {
     ...base,
@@ -40,12 +36,17 @@ function applySuggestion(base: ListingFilters, suggestion: LocationSuggestion): 
 export function LocationFilterField({ value, onChange }: Props) {
   const listId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [query, setQuery] = useState(() => filtersToQueryText(value));
+  const [query, setQuery] = useState(() => value.search ?? "");
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState(false);
   const debouncedQuery = useDebouncedValue(query, 350);
 
   const regions = useCachedAsync("inventory-by-region", () => api.inventoryByRegion(), []);
+  const municipalities = useCachedAsync(
+    `municipalities-${value.region ?? "all"}`,
+    () => api.municipalities(value.region),
+    [value.region]
+  );
   const suggestions = useCachedAsync(
     `location-suggest-${debouncedQuery.trim().toLowerCase()}`,
     () => (debouncedQuery.trim().length >= 2 ? api.locationSuggest(debouncedQuery.trim()) : Promise.resolve({ items: [] })),
@@ -63,18 +64,17 @@ export function LocationFilterField({ value, onChange }: Props) {
       page: 1,
       search: trimmed || undefined,
       district: undefined,
-      city: undefined,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- debounced free-text search only
   }, [debouncedQuery]);
 
   useEffect(() => {
-    const external = filtersToQueryText(value);
+    const external = value.search ?? "";
     if (external !== query) {
       setQuery(external);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- external filter reset only
-  }, [value.search, value.region, value.district, value.city]);
+  }, [value.search]);
 
   useEffect(() => {
     function onDocClick(event: MouseEvent) {
@@ -88,10 +88,22 @@ export function LocationFilterField({ value, onChange }: Props) {
 
   function selectSuggestion(suggestion: LocationSuggestion) {
     setPicked(true);
-    setQuery(suggestion.label);
+    setQuery(suggestion.search ?? "");
     onChange(applySuggestion(value, suggestion));
     setOpen(false);
   }
+
+  const municipalityOptions = municipalities.data?.items ?? [];
+  const municipalitiesPending = municipalities.loading || municipalities.refreshing;
+  const cityStillValid =
+    !value.city || municipalityOptions.some((row) => row.municipality === value.city) || municipalitiesPending;
+
+  useEffect(() => {
+    if (!cityStillValid && value.city) {
+      onChange({ ...value, page: 1, city: undefined });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clear obec when outside selected kraj
+  }, [cityStillValid, value.city]);
 
   const showSuggestions = open && debouncedQuery.trim().length >= 2 && (suggestions.data?.items.length ?? 0) > 0;
 
@@ -133,6 +145,7 @@ export function LocationFilterField({ value, onChange }: Props) {
               ...value,
               page: 1,
               region: e.target.value || undefined,
+              city: undefined,
             })
           }
         >
@@ -140,6 +153,31 @@ export function LocationFilterField({ value, onChange }: Props) {
           {(regions.data ?? []).map((row) => (
             <option key={row.region ?? "unknown"} value={row.region ?? ""}>
               {row.region ?? "—"} ({row.listing_count.toLocaleString("cs-CZ")})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="field-label" htmlFor={`${listId}-city`}>
+          {cs.listings.obec}
+        </label>
+        <select
+          id={`${listId}-city`}
+          className="select-field min-w-[11rem]"
+          value={value.city ?? ""}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              page: 1,
+              city: e.target.value || undefined,
+            })
+          }
+        >
+          <option value="">{cs.listings.vseObce}</option>
+          {municipalityOptions.map((row) => (
+            <option key={row.municipality} value={row.municipality}>
+              {row.municipality} ({row.listing_count.toLocaleString("cs-CZ")})
             </option>
           ))}
         </select>
