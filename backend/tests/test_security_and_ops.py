@@ -86,7 +86,8 @@ def test_rate_limit_returns_429_after_threshold(client, monkeypatch):
     orig_max, orig_window = limiter.max_requests, limiter.window_seconds
     limiter.max_requests = 3
     limiter.window_seconds = 60
-    limiter._hits.clear()
+    if hasattr(limiter, "_hits"):
+        limiter._hits.clear()
     try:
         headers = {"X-API-Key": settings.api_key}
         statuses = [client.post("/api/scraping/trigger", headers=headers).status_code for _ in range(4)]
@@ -95,7 +96,8 @@ def test_rate_limit_returns_429_after_threshold(client, monkeypatch):
         assert statuses[3] == 429, statuses
     finally:
         limiter.max_requests, limiter.window_seconds = orig_max, orig_window
-        limiter._hits.clear()
+        if hasattr(limiter, "_hits"):
+            limiter._hits.clear()
 
 
 # --- T3: scheduler wiring ------------------------------------------------
@@ -113,7 +115,7 @@ def test_scheduler_registers_a_job_for_every_cron_setting():
 def test_scheduler_job_ids_are_stable():
     from app.scheduler import JOB_SPECS
 
-    assert set(JOB_SPECS) == {"incremental_scrape", "full_scrape", "analytics_snapshot"}
+    assert set(JOB_SPECS) == {"incremental_scrape", "analytics_snapshot", "prune_list_raw_payloads"}
 
 
 # --- T4: create_all gating + production fail-loud ------------------------

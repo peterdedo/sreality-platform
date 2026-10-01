@@ -27,6 +27,7 @@ const RUN_STATUS_LABELS: Record<string, string> = {
   success: "Úspěch",
   failed: "Selhal",
   partial: "Částečně úspěšný",
+  skipped: "Přeskočeno",
 };
 
 const POLL_MS = 15_000;
@@ -185,7 +186,7 @@ export function PokroziteAnalyzy() {
                       <td className="py-1 text-right">{run.items_processed}</td>
                       <td className="py-1 text-right">{run.error_count}</td>
                     </tr>
-                    {run.error_message && (run.status === "failed" || run.status === "partial") && (
+                    {run.error_message && (run.status === "failed" || run.status === "partial" || run.status === "skipped") && (
                       <tr>
                         <td colSpan={6} className="status-banner status-banner--warning !mb-0 !rounded-none text-xs border-x-0">
                           {run.error_message}

@@ -17,15 +17,9 @@ from app.schemas.scraping import (
 )
 from app.scraping.orphan_runs import reconcile_orphaned_scrape_runs
 from app.scraping.pipeline import run_incremental_scrape, run_missing_detail_backfill
+from app.scraping.prune import prune_list_raw_payloads
 
 router = APIRouter(prefix="/scraping", tags=["scraping"])
-
-
-def _vacuum_rawpayload() -> None:
-    from sqlalchemy import text
-
-    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        conn.execute(text("VACUUM ANALYZE rawpayload"))
 
 
 @router.get("/runs", response_model=list[ScrapingRunRead], summary="Historie scrapovacích běhů")
@@ -56,11 +50,7 @@ def reconcile_orphaned_runs(session: Session = Depends(get_session)):
 )
 def prune_raw_payloads(session: Session = Depends(get_session)):
     """Drop list-type raw JSON blobs — structured fields already live in listing."""
-    from sqlalchemy import text
-
-    deleted = session.execute(text("DELETE FROM rawpayload WHERE payload_type = 'list'")).rowcount or 0
-    session.commit()
-    _vacuum_rawpayload()
+    deleted = prune_list_raw_payloads(session)
     return {"deleted_rows": deleted, "message": f"Smazáno {deleted} řádků rawpayload (list)."}
 
 

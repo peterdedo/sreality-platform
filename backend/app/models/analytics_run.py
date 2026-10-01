@@ -19,6 +19,8 @@ class AdvancedAnalyticsRunStatus(str, Enum):
     success = "success"
     failed = "failed"
     partial = "partial"
+    # Lock contention / duplicate trigger — not a failure; UI shows „Přeskočeno“.
+    skipped = "skipped"
 
 
 class AnalyticsRun(SQLModel, table=True):

@@ -12,7 +12,7 @@ from app.models.scraping_run import RunStatus, RunType
 FRESHNESS_LABELS_CS: dict[str, str] = {
     "empty": "Prázdný dataset",
     "in_progress": "Průběžný snapshot — scraping běží",
-    "detail_enrichment": "Doplňování detailů — průběžný snapshot",
+    "detail_enrichment": "Doplňování detailů — počty uzavřené",
     "final_complete": "Konečný snapshot — úplný dataset",
     "final_partial": "Konečný snapshot — neúplný dataset",
 }
@@ -28,8 +28,8 @@ COMPARE_GUIDANCE_CS: dict[str, str] = {
         "Doplňují se detaily (plocha, dispozice…). Sledujte pokrytí detailů, ne celkový počet."
     ),
     "final_complete": (
-        "Dataset je po úplném sweepu. Celkový počet lze porovnat se součtem Sreality API slice totals "
-        "(±2 % strukturální tolerance). Pro filtrované UI Sreality porovnávejte stejný slice."
+        "Dataset je po úplném sweepu. Celkový počet lze porovnat se součtem Sreality API "
+        "(±2 % strukturální tolerance). Pro filtrované UI Sreality porovnávejte stejný typ nabídky."
     ),
     "final_partial": (
         "Dataset je uzavřený, ale neúplný (přerušený běh nebo chybějící slice). "

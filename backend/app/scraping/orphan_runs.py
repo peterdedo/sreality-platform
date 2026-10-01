@@ -10,6 +10,7 @@ A run is considered orphaned when:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 
@@ -27,6 +28,10 @@ ORPHAN_RUN_MESSAGE = (
 )
 
 _active_run_ids: set[int] = set()
+
+# Default wait on SIGTERM / lifespan shutdown while a scrape still holds a lock.
+DRAIN_TIMEOUT_SECONDS = 90
+DRAIN_POLL_SECONDS = 2
 
 
 def register_active_run(run_id: int) -> None:
@@ -48,8 +53,12 @@ def _lock_id_for_run(run: ScrapingRun) -> int:
 
 
 def _is_advisory_lock_held(session: Session, lock_id: int) -> bool:
-    bind = session.get_bind()
-    if bind.dialect.name != "postgresql":
+    get_bind = getattr(session, "get_bind", None)
+    if get_bind is None:
+        return False
+    bind = get_bind()
+    dialect = getattr(bind, "dialect", None) if bind is not None else None
+    if dialect is None or getattr(dialect, "name", None) != "postgresql":
         return False
 
     classid = (lock_id >> 32) & 0xFFFFFFFF
@@ -71,6 +80,48 @@ def _is_advisory_lock_held(session: Session, lock_id: int) -> bool:
             {"classid": classid, "objid": objid},
         ).scalar()
     )
+
+
+def any_scrape_lock_held(session: Session) -> bool:
+    """True if a sweep or detail-backfill advisory lock is currently held."""
+    return _is_advisory_lock_held(session, SWEEP_LOCK_ID) or _is_advisory_lock_held(
+        session, BACKFILL_LOCK_ID
+    )
+
+
+async def drain_scrape_locks(
+    *,
+    timeout_seconds: float = DRAIN_TIMEOUT_SECONDS,
+    poll_seconds: float = DRAIN_POLL_SECONDS,
+) -> bool:
+    """Wait until scrape locks are released, or until timeout.
+
+    Returns True if drained cleanly, False if still busy after timeout.
+    Used on process shutdown so Railway redeploy gives an in-flight sweep a
+    brief chance to finish (or at least release the session lock) before kill.
+    """
+    from app.core.db import engine
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout_seconds
+    while True:
+        with Session(engine) as session:
+            busy = any_scrape_lock_held(session)
+        if not busy and not _active_run_ids:
+            logger.info("Scrape drain complete — no active locks or in-process runs")
+            return True
+        if loop.time() >= deadline:
+            logger.warning(
+                "Scrape drain timed out after %.0fs (locks/active still held); "
+                "orphan reconciliation will close stale runs on next startup",
+                timeout_seconds,
+            )
+            return False
+        logger.info(
+            "Waiting for scrape drain (active_in_process=%s)…",
+            sorted(_active_run_ids),
+        )
+        await asyncio.sleep(poll_seconds)
 
 
 def _protected_running_run_ids(session: Session, running_runs: list[ScrapingRun]) -> set[int]:

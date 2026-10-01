@@ -130,11 +130,32 @@ def fit_and_apply_valuations(session: Session, version: str | None = None) -> li
         features, raw = _build_design_matrix(rows)
         y = raw["price_czk"].apply(lambda p: math.log(p) if p and p > 0 else None)
         train_mask = y.notna()
+        n_train = int(train_mask.sum())
+
+        # Hold-out R² on a simple 80/20 split (logged + stored in notes) so
+        # operators can see overfit risk vs in-sample R². Full-sample model is
+        # still used for published valuations (baseline exploratory tool).
+        holdout_r2: float | None = None
+        indexed = features[train_mask].reset_index(drop=True)
+        y_indexed = y[train_mask].reset_index(drop=True)
+        if n_train >= MIN_TRAINING_SAMPLES + 10:
+            split_at = max(MIN_TRAINING_SAMPLES, int(n_train * 0.8))
+            X_fit, X_hold = indexed.iloc[:split_at], indexed.iloc[split_at:]
+            y_fit, y_hold = y_indexed.iloc[:split_at], y_indexed.iloc[split_at:]
+            if len(X_hold) >= 5:
+                hold_model = LinearRegression()
+                hold_model.fit(X_fit, y_fit)
+                holdout_r2 = float(hold_model.score(X_hold, y_hold))
 
         model = LinearRegression()
         model.fit(features[train_mask], y[train_mask])
         r2 = model.score(features[train_mask], y[train_mask])
 
+        holdout_note = (
+            f" hold-out R^2={holdout_r2:.3f} (20% tail split)."
+            if holdout_r2 is not None
+            else " hold-out R^2 nedostupné (málo vzorků)."
+        )
         valuation_model = ValuationModel(
             version=version,
             segment_key=segment_key,
@@ -143,11 +164,13 @@ def fit_and_apply_valuations(session: Session, version: str | None = None) -> li
             coefficients=dict(zip(features.columns, [float(c) for c in model.coef_])),
             intercept=float(model.intercept_),
             r2=float(r2),
-            n_samples=int(train_mask.sum()),
+            n_samples=n_train,
             trained_at=datetime.utcnow(),
             notes=(
-                f"OLS on log(price_czk); {int(train_mask.sum())} training rows; "
-                f"R^2={r2:.3f}. See docs/METHODOLOGY.md §3 for limitations."
+                f"OLS on log(price_czk); {n_train} training rows; "
+                f"in-sample R^2={r2:.3f}.{holdout_note} "
+                f"Baseline/exploratory — not a certified valuation. "
+                f"See docs/METHODOLOGY.md §3."
             ),
         )
         session.add(valuation_model)
@@ -155,7 +178,7 @@ def fit_and_apply_valuations(session: Session, version: str | None = None) -> li
         session.refresh(valuation_model)
         fitted_models.append(valuation_model)
 
-        n_samples = int(train_mask.sum())
+        n_samples = n_train
         confidence = (
             ValuationConfidence.high
             if n_samples >= 100 and r2 >= 0.4

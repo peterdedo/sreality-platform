@@ -392,13 +392,15 @@ def test_page_fetch_failure_is_logged_and_other_pages_still_processed(session, m
     # resulting coverage_gap (2 of 3 probed listings recovered) -- both are
     # independently useful signals, not a double-count of the same failure.
     assert run.error_count == 2
+    assert run.status == "partial"
     listings = session.exec(select(Listing)).all()
     assert {l.hash_id for l in listings} == {"4001", "4002"}
 
     logs = session.exec(select(RunItemLog).where(RunItemLog.run_id == run.id)).all()
-    assert len(logs) == 2
     logs_by_stage = {log.stage: log for log in logs}
-    assert set(logs_by_stage) == {"page_fetch", "coverage_gap"}
+    assert "page_fetch" in logs_by_stage
+    assert "coverage_gap" in logs_by_stage
+    assert "delist_skipped" in logs_by_stage
     assert "offset2" in logs_by_stage["page_fetch"].hash_id
     assert "simulated page fetch failure" in logs_by_stage["page_fetch"].message
     assert "probed_total=3" in logs_by_stage["coverage_gap"].message

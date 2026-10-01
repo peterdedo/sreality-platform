@@ -25,7 +25,8 @@ export function useDatasetSummary() {
   const refreshing = summary.refreshing;
 
   useEffect(() => {
-    if (data?.dataset_freshness !== "in_progress") {
+    const freshness = data?.dataset_freshness;
+    if (freshness !== "in_progress" && freshness !== "detail_enrichment") {
       return;
     }
     const id = window.setInterval(() => {

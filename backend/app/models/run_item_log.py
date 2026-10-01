@@ -17,6 +17,10 @@ class IngestStage(str, Enum):
     # (not just logger.warning'd) so silent truncation is queryable via
     # GET /scraping/runs/{id}/items instead of only visible in stdout logs.
     coverage_gap = "coverage_gap"
+    # Detail endpoint returned HTTP 404 — listing soft-delisted as removed.
+    delisted_404 = "delisted_404"
+    # Global delisting skipped because this sweep had coverage_gap(s).
+    delist_skipped = "delist_skipped"
 
 
 class RunItemLog(SQLModel, table=True):

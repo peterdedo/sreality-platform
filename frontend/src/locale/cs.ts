@@ -20,7 +20,7 @@ export const cs = {
   backend: {
     title: "Backend API není dostupné",
     notConfigured:
-      "Frontend běží na Vercel, ale požadavky na /api/* nemají kam směřovat. Nastavte proměnnou BACKEND_URL na Vercel a nasaďte backend (např. Railway) s databází.",
+      "Frontend běží na Vercel, ale API proxy na backend není dostupná. Ověřte Rewrites v frontend/vercel.json a stav Railway backendu.",
     databaseUnavailable:
       "Backend na Railway běží, ale PostgreSQL je nedostupná (služba Postgres je Offline po havárii disku). V Railway dashboardu otevřete službu Postgres a klikněte Deploy nebo Restart.",
     unavailable:
@@ -29,7 +29,7 @@ export const cs = {
     hintDatabase:
       "Po restartu Postgres by /health měl vrátit {\"status\":\"ok\",\"database\":\"connected\"}. Pak obnovte stránku.",
     hintNotConfigured:
-      "Po nastavení BACKEND_URL a redeployi frontendu by měly fungovat adresy /health a /api/analytics/dataset-summary.",
+      "Po opravě proxy (vercel.json → Railway) a redeployi by měly fungovat adresy /health a /api/analytics/dataset-summary.",
     hintDown: "Ověřte stav služeb sreality-platform a Postgres v Railway projektu vivacious-wholeness.",
     retry: "Zkusit znovu",
   },
@@ -81,7 +81,7 @@ export const cs = {
     stavSnapshotu: {
       empty: "Prázdný dataset",
       in_progress: "Průběžný snapshot — scraping běží",
-      detail_enrichment: "Doplňování detailů — průběžný snapshot",
+      detail_enrichment: "Doplňování detailů — počty uzavřené",
       final_complete: "Konečný snapshot — úplný dataset",
       final_partial: "Konečný snapshot — neúplný dataset",
     },
@@ -392,6 +392,8 @@ export const cs = {
       persist: "Uložení",
       page_fetch: "Stažení stránky výpisu",
       coverage_gap: "Mezera pokrytí",
+      delisted_404: "Smazáno (404)",
+      delist_skipped: "Delisting přeskočen",
     },
   },
   map: {
@@ -514,7 +516,8 @@ export const cs = {
       planovanoDoBudoucna: "Plánováno do budoucna",
       text: [
         "Vývoj trhu a segmentace vychází z popisných statistik nad reálnými daty (plně implementováno).",
-        "Odhad tržní ceny používá transparentní lineární regresi (log ceny na ploše, dispozici, stavu, vlastnictví a dalších značích) počítanou zvlášť pro každý segment. Segmenty s méně než 30 nabídkami odhad nedostávají (spolehlivost „model nedostupný“) — odhad se nevymýšlí z nedostatečných dat.",
+        "Odhad tržní ceny je baseline / exploratory nástroj — ne certifikovaný odhad nemovitosti. Používá transparentní lineární regresi (log ceny na ploše, dispozici, stavu, vlastnictví a dalších znacích) počítanou zvlášť pro každý segment. Segmenty s méně než 30 nabídkami odhad nedostávají (spolehlivost „model nedostupný“).",
+        "Při přepočtu se loguje i hold-out R² (20 % vzorků) vedle in-sample R², aby bylo vidět riziko přeučení. Přesnost na živých datech je třeba průběžně ověřovat.",
         "Detekce anomálií je založena na pravidlech a statistických odchylkách (z-skóre), nikoli na strojovém učení — každý příznak je dohledatelný a vysvětlitelný.",
         "Minimální plochy pro jednotlivé dispozice použité při detekci anomálií jsou rozumný odhad, nikoli ověřený autoritativní údaj (na rozdíl např. od číselníků typu stavby/stavu/vlastnictví).",
         "Prostorová analýza používá mřížku o velikosti cca 1,1 km jako primární metodu, protože názvy okresů/krajů nejsou u většiny nabídek v datech dosud dohledány.",

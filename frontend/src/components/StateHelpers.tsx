@@ -25,7 +25,7 @@ export function ErrorState({ message }: { message?: string }) {
       <p className="font-semibold">{message ?? cs.common.chyba}</p>
       {isTimeout && (
         <p className="mt-2 text-sm opacity-80">
-          Backend je dočasně přetížený nebo probíhá scraping. Zkuste stránku za chvíli obnovit.
+          Server je dočasně přetížený nebo probíhá scraping. Zkuste stránku za chvíli obnovit.
         </p>
       )}
     </div>

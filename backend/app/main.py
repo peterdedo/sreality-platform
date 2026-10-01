@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,14 +14,40 @@ from app.core.config import settings
 from app.core.db import engine, init_db
 from app.core.logging import configure_logging
 from app.core.timing import TimingMiddleware
-from app.scheduler import start_scheduler
+from app.scheduler import scheduler, start_scheduler
 from app.analytics.advanced.pipeline import reconcile_orphaned_analytics_runs
-from app.scraping.orphan_runs import reconcile_orphaned_scrape_runs
+from app.scraping.orphan_runs import (
+    any_scrape_lock_held,
+    drain_scrape_locks,
+    reconcile_orphaned_scrape_runs,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def _init_sentry() -> None:
+    if not settings.sentry_dsn:
+        return
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        integrations=[
+            StarletteIntegration(transaction_style="endpoint"),
+            FastApiIntegration(transaction_style="endpoint"),
+        ],
+        traces_sample_rate=0.05,
+        environment=settings.app_env,
+    )
+    logger.info("Sentry initialized")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging()
+    _init_sentry()
     # init_db() runs SQLModel.metadata.create_all() -- a local/dev bootstrap
     # convenience only. In production Alembic migrations are the sole schema
     # authority, so create_all() is skipped there to avoid masking model/
@@ -32,6 +59,13 @@ async def lifespan(app: FastAPI):
         reconcile_orphaned_analytics_runs(session)
     start_scheduler()
     yield
+    # Graceful drain on redeploy/SIGTERM: give an in-flight sweep/backfill a
+    # short window before the process is killed (Railway single-service model).
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
+    drained = await drain_scrape_locks()
+    if not drained:
+        logger.warning("Shutdown proceeding while scrape work may still be active")
 
 
 app = FastAPI(
@@ -44,7 +78,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_origin_regex=r"https://([a-z0-9-]+\.)*vercel\.app",
+    allow_origin_regex=r"https://sreality-platform(-[a-z0-9-]+)?\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -68,9 +102,14 @@ def health():
     try:
         with Session(engine) as session:
             session.exec(text("SELECT 1"))
-        return {"status": "ok", "database": "connected"}
+            scrape_busy = any_scrape_lock_held(session)
+        return {
+            "status": "ok",
+            "database": "connected",
+            "scrape_busy": scrape_busy,
+        }
     except Exception:
         return JSONResponse(
             status_code=503,
-            content={"status": "degraded", "database": "unavailable"},
+            content={"status": "degraded", "database": "unavailable", "scrape_busy": False},
         )

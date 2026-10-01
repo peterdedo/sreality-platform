@@ -2,7 +2,17 @@ from sqlmodel import SQLModel, Session, create_engine
 
 from app.core.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+# Explicit pool knobs (SQLAlchemy defaults are 5+10/30s). Documented for the
+# single-worker Railway layout: one long-lived scrape Session plus concurrent
+# HTTP handlers share this pool; pool_pre_ping recovers after Postgres blips.
+engine = create_engine(
+    settings.database_url,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=60,
+    pool_recycle=1800,
+)
 
 
 def init_db() -> None:

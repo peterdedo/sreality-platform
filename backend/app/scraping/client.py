@@ -40,6 +40,14 @@ class RetryableHTTPError(Exception):
         super().__init__(f"Retryable HTTP status {status_code}")
 
 
+class NotFoundHTTPError(Exception):
+    """Listing detail no longer exists upstream (HTTP 404) — soft-delist candidate."""
+
+    def __init__(self, url: str):
+        self.url = url
+        super().__init__(f"HTTP 404 Not Found: {url}")
+
+
 def _is_retryable(exc: BaseException) -> bool:
     return isinstance(exc, (httpx.TransportError, RetryableHTTPError))
 
@@ -64,6 +72,8 @@ class SrealityClient:
     )
     async def _get(self, url: str) -> httpx.Response:
         response = await self._client.get(url)
+        if response.status_code == 404:
+            raise NotFoundHTTPError(url)
         if response.status_code in RETRYABLE_STATUS_CODES:
             raise RetryableHTTPError(response.status_code)
         response.raise_for_status()
@@ -76,6 +86,9 @@ class SrealityClient:
                 response = await self._get(url)
                 self.consecutive_failures = 0
                 return response.json()
+            except NotFoundHTTPError:
+                # Not a transient failure — do not inflate consecutive_failures.
+                raise
             except Exception:
                 self.consecutive_failures += 1
                 logger.error("Request failed for %s (consecutive failures: %d)", url, self.consecutive_failures)

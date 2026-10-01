@@ -254,7 +254,7 @@ def test_sweep_lock_prevents_concurrent_delisting(session):
         assert _try_acquire_lock(other_session, SWEEP_LOCK_ID) is True
         try:
             run = asyncio.run(run_incremental_scrape(session))
-            assert run.status == "failed"
+            assert run.status == "skipped"
             assert "přeskočen" in run.error_message
             assert run.items_removed == 0  # delisting pass never ran
 
@@ -272,7 +272,7 @@ def test_backfill_lock_prevents_concurrent_backfill(session):
         assert _try_acquire_lock(other_session, BACKFILL_LOCK_ID) is True
         try:
             run = asyncio.run(run_missing_detail_backfill(session))
-            assert run.status == "failed"
+            assert run.status == "skipped"
             assert "přeskočen" in run.error_message
         finally:
             _release_lock(other_session, BACKFILL_LOCK_ID)

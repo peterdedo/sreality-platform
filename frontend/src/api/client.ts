@@ -28,14 +28,8 @@ import type {
 const BASE = "/api";
 const REQUEST_TIMEOUT_MS = 15_000;
 
-// Shared API key for guarded (state-changing / heavy) endpoints: scrape
-// trigger, analytics recompute, and exports. Read from a build-time Vite env
-// var, never hardcoded to a real secret; falls back to the backend's dev
-// default so local development needs no setup. Set VITE_API_KEY at build time
-// for any non-local deployment.
-const API_KEY = (import.meta.env.VITE_API_KEY as string | undefined) ?? "dev-local-key";
-const authHeaders: Record<string, string> = { "X-API-Key": API_KEY };
-
+// Write/export paths are authenticated by Vercel Edge Middleware (production)
+// or the Vite dev proxy (local) — the SPA must never embed API_KEY.
 async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -134,11 +128,11 @@ export type ExportFormat = "csv" | "xlsx" | "json" | "parquet";
  * using the server-provided filename (Content-Disposition) rather than
  * guessing one client-side. */
 async function downloadExport(path: string, params: object): Promise<void> {
-  const res = await fetchWithTimeout(`${BASE}${path}${toQuery(params)}`, { headers: authHeaders }, 120_000);
+  const res = await fetchWithTimeout(`${BASE}${path}${toQuery(params)}`, {}, 120_000);
   if (!res.ok) {
     if (res.status === 401) {
       throw new Error(
-        "Export selhal (401): neplatný API klíč. Nastavte VITE_API_KEY ve frontend/.env tak, aby odpovídal backend API_KEY (výchozí dev-local-key).",
+        "Export selhal (401): neplatný API klíč. Ověřte, že Vercel/Vite proxy nastavuje API_KEY stejně jako backend.",
       );
     }
     throw new Error(`Export selhal (${res.status})`);
@@ -219,19 +213,19 @@ export const api = {
 
   scrapingRuns: (limit = 50) => getJson<ScrapingRun[]>(`/scraping/runs${toQuery({ limit })}`),
   reconcileOrphanedRuns: async (): Promise<{ reconciled_count: number; run_ids: number[] }> => {
-    const res = await fetchWithTimeout(`${BASE}/scraping/reconcile-orphaned-runs`, { method: "POST", headers: authHeaders });
+    const res = await fetchWithTimeout(`${BASE}/scraping/reconcile-orphaned-runs`, { method: "POST" });
     if (!res.ok) throw new Error("Uzavření osiřelých běhů selhalo");
     return res.json();
   },
   scrapingRunItems: (runId: number, limit = 200) =>
     getJson<RunItemLog[]>(`/scraping/runs/${runId}/items${toQuery({ limit })}`),
   triggerScraping: async (): Promise<{ message: string }> => {
-    const res = await fetchWithTimeout(`${BASE}/scraping/trigger`, { method: "POST", headers: authHeaders });
+    const res = await fetchWithTimeout(`${BASE}/scraping/trigger`, { method: "POST" });
     if (!res.ok) throw new Error("Spuštění scrapingu selhalo");
     return res.json();
   },
   triggerMissingDetailBackfill: async (): Promise<{ message: string }> => {
-    const res = await fetchWithTimeout(`${BASE}/scraping/backfill-missing-details`, { method: "POST", headers: authHeaders });
+    const res = await fetchWithTimeout(`${BASE}/scraping/backfill-missing-details`, { method: "POST" });
     if (!res.ok) throw new Error("Spuštění doplnění detailů selhalo");
     return res.json();
   },
@@ -296,7 +290,7 @@ export const api = {
     },
     runs: (limit = 50) => getJson<AnalyticsRunRow[]>(`/analytics/advanced/runs${toQuery({ limit })}`),
     triggerRecompute: async (): Promise<{ message: string }> => {
-      const res = await fetchWithTimeout(`${BASE}/analytics/advanced/recompute`, { method: "POST", headers: authHeaders });
+      const res = await fetchWithTimeout(`${BASE}/analytics/advanced/recompute`, { method: "POST" });
       if (!res.ok) throw new Error("Spuštění přepočtu selhalo");
       return res.json();
     },

@@ -329,6 +329,16 @@ def map_markers(
     limit: int = Query(settings.max_map_markers, ge=1, le=settings.max_map_markers),
 ):
     """Minimal payload for map clustering — no detail/location joins."""
+    has_bbox = south is not None and west is not None and north is not None and east is not None
+    if not has_bbox and limit > settings.max_map_markers_without_bbox:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Bez výřezu mapy (south/west/north/east) je limit max "
+                f"{settings.max_map_markers_without_bbox} bodů. Přibližte mapu nebo snižte limit."
+            ),
+        )
+
     stmt = select(Listing).where(
         Listing.is_active == is_active,  # noqa: E712
         Listing.gps_lat.is_not(None),

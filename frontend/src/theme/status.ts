@@ -22,6 +22,7 @@ const RUN_STATUS_VARIANT: Record<string, StatusPillVariant> = {
   failed: "error",
   running: "info",
   partial: "warning",
+  skipped: "neutral",
 };
 
 export function runStatusPill(status: string): string {

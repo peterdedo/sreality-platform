@@ -7,9 +7,7 @@ See architecture.md section 8 for the documented Celery upgrade path.
 Every cron cadence declared in Settings is registered here. JOB_SPECS is the
 single source of truth mapping a job id -> (Settings cron attribute, callable);
 a test asserts it covers exactly the Settings cron fields, so a future added
-cron setting that isn't wired fails CI rather than silently never running
-(the gap the audit found: full_scrape/analytics_snapshot were configured but
-never scheduled).
+cron setting that isn't wired fails CI rather than silently never running.
 """
 
 import asyncio
@@ -25,6 +23,7 @@ from app.core.db import engine
 from app.scraping.locks import BACKFILL_LOCK_ID
 from app.scraping.orphan_runs import _is_advisory_lock_held
 from app.scraping.pipeline import run_incremental_scrape
+from app.scraping.prune import prune_list_raw_payloads
 
 logger = logging.getLogger(__name__)
 
@@ -49,16 +48,6 @@ async def _scheduled_incremental_scrape() -> None:
     logger.info("Scheduled incremental scrape finished")
 
 
-async def _scheduled_full_scrape() -> None:
-    with Session(engine) as session:
-        if _is_advisory_lock_held(session, BACKFILL_LOCK_ID):
-            logger.info("Skipping scheduled full scrape — detail backfill in progress")
-            return
-    logger.info("Scheduled full scrape starting")
-    await asyncio.to_thread(_run_incremental_scrape_sync)
-    logger.info("Scheduled full scrape finished")
-
-
 async def _scheduled_analytics_recompute() -> None:
     logger.info("Scheduled analytics recompute starting")
     # run_full_recompute is synchronous and DB-bound; run it off the event
@@ -71,14 +60,26 @@ async def _scheduled_analytics_recompute() -> None:
     logger.info("Scheduled analytics recompute finished")
 
 
+async def _scheduled_prune_list_raw_payloads() -> None:
+    logger.info("Scheduled list rawpayload prune starting")
+
+    def _work() -> None:
+        with Session(engine) as session:
+            deleted = prune_list_raw_payloads(session)
+            logger.info("Scheduled prune deleted %d list rawpayload row(s)", deleted)
+
+    await asyncio.to_thread(_work)
+    logger.info("Scheduled list rawpayload prune finished")
+
+
 # job id -> (Settings attribute holding the cron "hour" expression, callable).
 # test_scheduler.py asserts these attribute names are exactly the scheduling
 # cron fields on Settings, so a newly-added cron setting that isn't wired here
 # fails the test instead of silently never running.
 JOB_SPECS: dict[str, tuple[str, object]] = {
     "incremental_scrape": ("incremental_scrape_cron_hour", _scheduled_incremental_scrape),
-    "full_scrape": ("full_scrape_cron_hour", _scheduled_full_scrape),
     "analytics_snapshot": ("analytics_snapshot_hour", _scheduled_analytics_recompute),
+    "prune_list_raw_payloads": ("prune_raw_payloads_hour", _scheduled_prune_list_raw_payloads),
 }
 
 

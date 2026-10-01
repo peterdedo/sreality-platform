@@ -19,7 +19,7 @@ from app.core.config import settings
 from app.models import Listing, ListingDetail, Location, PriceHistory, RawPayload, RunItemLog, ScrapingRun
 from app.models.run_item_log import IngestStage
 from app.models.scraping_run import RunStatus, RunType
-from app.scraping.client import SrealityClient
+from app.scraping.client import NotFoundHTTPError, SrealityClient
 from app.scraping.constants import CATEGORY_COMBINATIONS, CZECH_REGION_IDS, SUBCATEGORIES_BY_MAIN
 from app.scraping.parser import parse_detail, parse_list_item
 from app.scraping.region_backfill import resolve_listing_region
@@ -245,8 +245,8 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
         # process). Refuse rather than run two sweeps' delisting logic
         # against the same DB concurrently.
         logger.warning("Sweep lock held by another run; skipping this trigger")
-        run.status = RunStatus.failed
-        run.error_message = "Jiný scraping sweep již běží (advisory lock); tento pokus byl přeskočen."
+        run.status = RunStatus.skipped
+        run.error_message = "Jiný scraping sweep již běží; tento pokus byl přeskočen."
         run.finished_at = datetime.utcnow()
         session.add(run)
         session.commit()
@@ -271,7 +271,7 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
                         run.id,
                         raw.get("hash_id"),
                         IngestStage.validate,
-                        f"Missing required field(s) (hash_id={raw.get('hash_id')!r}, name={raw.get('name')!r})",
+                        f"Chybí povinná pole (hash_id={raw.get('hash_id')!r}, name={raw.get('name')!r})",
                     )
                     continue
 
@@ -319,6 +319,9 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
                     existing.last_seen_at = now
                     existing.is_active = True
                     existing.removed_at = None
+                    # Refresh unit evidence even when the numeric price is unchanged.
+                    # Missing/unknown current evidence must not inherit an old unit.
+                    existing.price_czk_unit = parsed["price_czk_unit"]
                     if parsed.get("source_url"):
                         existing.source_url = parsed["source_url"]
                     if parsed["price_czk"] and parsed["price_czk"] != existing.price_czk:
@@ -337,17 +340,48 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
         # Delisting detection: any active listing in these categories not seen in
         # this sweep is marked removed. Only safe to run when scraping *all*
         # categories in one pass (partial category runs would falsely flag others).
+        # Skip entirely when any coverage_gap was logged — unrecovered fan-out
+        # residuals (~1–2%) would otherwise be false-delisted.
+        had_coverage_gap = False
         if categories == CATEGORY_COMBINATIONS:
-            active_listings = session.exec(select(Listing).where(Listing.is_active == True)).all()  # noqa: E712
-            for listing in active_listings:
-                if listing.hash_id not in seen_hash_ids:
-                    listing.is_active = False
-                    listing.removed_at = datetime.utcnow()
-                    session.add(listing)
-                    run.items_removed += 1
-            session.commit()
+            gap_count = session.exec(
+                select(RunItemLog).where(
+                    RunItemLog.run_id == run.id,
+                    RunItemLog.stage == IngestStage.coverage_gap,
+                )
+            ).all()
+            had_coverage_gap = len(gap_count) > 0
+            if had_coverage_gap:
+                logger.warning(
+                    "Skipping global delisting — %d coverage_gap log(s) in this sweep",
+                    len(gap_count),
+                )
+                _log_item_failure(
+                    session,
+                    run.id,
+                    None,
+                    IngestStage.delist_skipped,
+                    f"Delisting přeskočen kvůli {len(gap_count)} coverage_gap záznamům v tomto běhu.",
+                )
+                session.commit()
+            else:
+                active_listings = session.exec(select(Listing).where(Listing.is_active == True)).all()  # noqa: E712
+                for listing in active_listings:
+                    if listing.hash_id not in seen_hash_ids:
+                        listing.is_active = False
+                        listing.removed_at = datetime.utcnow()
+                        session.add(listing)
+                        run.items_removed += 1
+                session.commit()
 
-        run.status = RunStatus.success
+        if run.error_count > 0 or had_coverage_gap:
+            run.status = RunStatus.partial
+            if had_coverage_gap and not run.error_message:
+                run.error_message = (
+                    "Běh dokončen s coverage_gap; globální delisting byl přeskočen."
+                )
+        else:
+            run.status = RunStatus.success
     except Exception as exc:
         logger.exception("Scraping run failed")
         run.status = RunStatus.failed
@@ -378,8 +412,8 @@ async def run_detail_backfill(session: Session, listing_ids: list[int]) -> Scrap
 
     if not _try_acquire_lock(session, BACKFILL_LOCK_ID):
         logger.warning("Backfill lock held by another run; skipping this trigger")
-        run.status = RunStatus.failed
-        run.error_message = "Jiné doplnění detailů již běží (advisory lock); tento pokus byl přeskočen."
+        run.status = RunStatus.skipped
+        run.error_message = "Jiné doplnění detailů již běží; tento pokus byl přeskočen."
         run.finished_at = datetime.utcnow()
         session.add(run)
         session.commit()
@@ -397,6 +431,23 @@ async def run_detail_backfill(session: Session, listing_ids: list[int]) -> Scrap
             url = f"{settings.sreality_detail_base}/{listing.hash_id}"
             try:
                 payload = await client.get_json(url)
+            except NotFoundHTTPError:
+                # Soft-delist removed listings — not a transient fetch error.
+                now = datetime.utcnow()
+                listing.is_active = False
+                listing.removed_at = now
+                session.add(listing)
+                session.commit()
+                run.items_removed += 1
+                _log_item_failure(
+                    session,
+                    run.id,
+                    listing.hash_id,
+                    IngestStage.delisted_404,
+                    "Detail vrátil HTTP 404; nabídka označena jako neaktivní.",
+                )
+                session.commit()
+                continue
             except Exception as exc:
                 run.error_count += 1
                 _log_item_failure(session, run.id, listing.hash_id, IngestStage.detail_fetch, str(exc))

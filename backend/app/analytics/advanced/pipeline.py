@@ -67,8 +67,8 @@ def run_full_recompute(session: Session) -> AnalyticsRun:
         session.execute(text("SELECT pg_try_advisory_lock(:id)"), {"id": ANALYTICS_LOCK_ID}).scalar()
     )
     if not got_lock:
-        run.status = AdvancedAnalyticsRunStatus.failed
-        run.error_message = "Jiný přepočet pokročilých analýz již běží (advisory lock); tento pokus byl přeskočen."
+        run.status = AdvancedAnalyticsRunStatus.skipped
+        run.error_message = "Jiný přepočet pokročilých analýz již běží; tento pokus byl přeskočen."
         run.finished_at = datetime.utcnow()
         session.add(run)
         session.commit()

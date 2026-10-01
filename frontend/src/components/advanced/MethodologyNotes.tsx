@@ -10,7 +10,7 @@ export function MethodologyNotes() {
         ))}
       </ul>
       <p className="text-xs text-ink-muted/70 mt-4">
-        Podrobná metodika (anglicky, pro vývojáře): <code>docs/METHODOLOGY.md</code>
+        Podrobná metodika pro vývojáře: <code>docs/METHODOLOGY.md</code>
       </p>
     </section>
   );

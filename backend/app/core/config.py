@@ -36,7 +36,10 @@ class Settings(BaseSettings):
     # It stops returning new rows after roughly this many offset steps per query.
     scrape_offset_cap: int = 9_900
     max_listings_page_size: int = 1000
-    max_map_markers: int = 200_000
+    # Cap for map-marker responses; viewport bbox is required above a lower soft limit.
+    max_map_markers: int = 20_000
+    # Unbounded (no bbox) map requests are rejected above this many rows.
+    max_map_markers_without_bbox: int = 5_000
     # Safety cap for single-shot export serialization (not an analytics sample).
     max_export_rows: int = 500_000
     scrape_concurrency: int = 8
@@ -44,10 +47,15 @@ class Settings(BaseSettings):
     scrape_max_retries: int = 5
     scrape_consecutive_failures_before_fallback: int = 5
 
+    # Observability (optional)
+    sentry_dsn: str | None = None
+
     # Scheduler
     enable_scheduler: bool = True
-    incremental_scrape_cron_hour: str = "3"  # once a day at 03:00 UTC
-    full_scrape_cron_hour: str = "3"  # once a day at 03:00
+    # Once daily at 02:00 — full category sweep (incremental pipeline with delisting).
+    incremental_scrape_cron_hour: str = "2"
+    # Prune archival list rawpayloads after the nightly scrape window (05:00).
+    prune_raw_payloads_hour: str = "5"
 
     # Analytics
     analytics_snapshot_hour: str = "4"

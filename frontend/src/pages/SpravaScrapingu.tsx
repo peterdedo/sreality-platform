@@ -27,6 +27,7 @@ const STATUS_LABELS: Record<string, string> = {
   success: "Úspěch",
   failed: "Selhal",
   partial: "Částečně úspěšný",
+  skipped: "Přeskočeno",
 };
 
 function RunItemsPanel({ runId, errorCount }: { runId: number; errorCount: number }) {
@@ -220,7 +221,7 @@ export function SpravaScrapingu() {
                       )}
                     </td>
                   </tr>
-                  {run.error_message && (run.status === "partial" || run.status === "failed") && (
+                  {run.error_message && (run.status === "partial" || run.status === "failed" || run.status === "skipped") && (
                     <tr>
                       <td colSpan={10} className="status-banner status-banner--warning !mb-0 !rounded-none text-xs border-x-0">
                         {run.error_message}

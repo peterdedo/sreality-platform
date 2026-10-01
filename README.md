@@ -22,18 +22,20 @@ All configuration is environment-variable driven (`app/core/config.py`, loaded f
 
 ### API key (guards state-changing / heavy endpoints)
 
-- `API_KEY` — shared secret required on: `POST /api/scraping/trigger`, `POST /api/analytics/advanced/recompute`, and all `GET /api/export/*` endpoints. Send it as the `X-API-Key` request header. Read-only endpoints (listings, analytics reads, run history) stay open.
+- `API_KEY` — shared secret required on: `POST /api/scraping/trigger`, `POST /api/scraping/backfill-missing-details`, `POST /api/scraping/prune-raw-payloads`, `POST /api/analytics/advanced/recompute`, and all `GET /api/export/*` endpoints. Send it as the `X-API-Key` request header. Read-only endpoints (listings, analytics reads, run history) stay open.
 - Local dev default: `dev-local-key` (no setup needed). In `production`, leaving it at the default is a fatal startup error — set a real value.
-- **Frontend:** set `VITE_API_KEY` at build time so the SPA sends the header on trigger/recompute/export; it defaults to `dev-local-key` for local work.
-- Heavy endpoints are also rate-limited (in-process, 10 requests / 60 s, keyed by API key or client IP), returning `429` when exceeded.
+- **Frontend:** the SPA must **not** embed the key. Production: set `API_KEY` on Vercel; Edge Middleware (`frontend/middleware.js`) injects `X-API-Key` for write/export paths. Local: Vite proxy in `vite.config.ts` injects the same header from `API_KEY` / `dev-local-key`.
+- Heavy endpoints are also rate-limited (Redis when reachable, else in-process; 10 requests / 60 s), returning `429` when exceeded.
 
 ### Scheduler (periodic jobs)
 
-- `ENABLE_SCHEDULER` — `true` (default) / `false`. When enabled, three cron jobs are registered (`app/scheduler.py`), each configurable via a cron "hour" expression:
-  - `INCREMENTAL_SCRAPE_CRON_HOUR` (default `*/6` — every 6 h)
-  - `FULL_SCRAPE_CRON_HOUR` (default `3` — daily 03:00)
-  - `ANALYTICS_SNAPSHOT_HOUR` (default `4` — daily 04:00; recomputes Pokročilé analýzy so valuation/anomaly/market data doesn't go stale)
-  - All jobs run with `coalesce=True` and `misfire_grace_time=3600` so a brief outage doesn't skip or stampede runs. A test (`tests/test_security_and_ops.py`) asserts every `*_hour` setting is actually wired to a job.
+- `ENABLE_SCHEDULER` — `true` (default) / `false`. When enabled, cron jobs are registered (`app/scheduler.py`), each configurable via a cron "hour" expression:
+  - `INCREMENTAL_SCRAPE_CRON_HOUR` (default `2` — daily 02:00 full-category sweep)
+  - `PRUNE_RAW_PAYLOADS_HOUR` (default `5` — prune archival list rawpayloads)
+  - `ANALYTICS_SNAPSHOT_HOUR` (default `4` — daily Pokročilé analýzy recompute)
+  - All jobs run with `coalesce=True` and `misfire_grace_time=3600`. A test asserts every `*_hour` setting is wired to a job.
+
+See also [`docs/OPS_RUNBOOK.md`](docs/OPS_RUNBOOK.md) for redeploy drain, backups, and smoke checks.
 
 ## Pokročilé analýzy (Advanced Analytics)
 
