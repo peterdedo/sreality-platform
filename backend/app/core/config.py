@@ -46,7 +46,7 @@ class Settings(BaseSettings):
 
     # Scheduler
     enable_scheduler: bool = True
-    incremental_scrape_cron_hour: str = "*/6"  # every 6 hours
+    incremental_scrape_cron_hour: str = "3"  # once a day at 03:00 UTC
     full_scrape_cron_hour: str = "3"  # once a day at 03:00
 
     # Analytics
