@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import BigInteger, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -11,5 +12,5 @@ class PriceHistory(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     listing_id: int = Field(foreign_key="listing.id", index=True)
-    price_czk: int
+    price_czk: int = Field(sa_column=Column(BigInteger(), nullable=False))
     recorded_at: datetime = Field(default_factory=datetime.utcnow, index=True)

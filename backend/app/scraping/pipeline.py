@@ -305,60 +305,73 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
                 seen_hash_ids.add(hash_id)
                 run.items_seen += 1
 
-                existing = session.exec(select(Listing).where(Listing.hash_id == hash_id)).first()
-                if existing is None:
-                    session.add(RawPayload(hash_id=hash_id, payload_type="list", payload=raw))
-                now = datetime.utcnow()
+                try:
+                    existing = session.exec(select(Listing).where(Listing.hash_id == hash_id)).first()
+                    if existing is None:
+                        session.add(RawPayload(hash_id=hash_id, payload_type="list", payload=raw))
+                    now = datetime.utcnow()
 
-                if existing is None:
-                    listing = Listing(
-                        hash_id=hash_id,
-                        title=parsed["title"],
-                        category_main_cb=parsed["category_main_cb"],
-                        category_type_cb=parsed["category_type_cb"],
-                        category_sub_cb=parsed["category_sub_cb"],
-                        price_czk=parsed["price_czk"],
-                        price_czk_unit=parsed["price_czk_unit"],
-                        gps_lat=parsed["gps_lat"],
-                        gps_lon=parsed["gps_lon"],
-                        locality_text=parsed["locality"],
-                        source_url=parsed["source_url"],
-                        first_seen_at=now,
-                        last_seen_at=now,
-                        is_active=True,
+                    if existing is None:
+                        listing = Listing(
+                            hash_id=hash_id,
+                            title=parsed["title"],
+                            category_main_cb=parsed["category_main_cb"],
+                            category_type_cb=parsed["category_type_cb"],
+                            category_sub_cb=parsed["category_sub_cb"],
+                            price_czk=parsed["price_czk"],
+                            price_czk_unit=parsed["price_czk_unit"],
+                            gps_lat=parsed["gps_lat"],
+                            gps_lon=parsed["gps_lon"],
+                            locality_text=parsed["locality"],
+                            source_url=parsed["source_url"],
+                            first_seen_at=now,
+                            last_seen_at=now,
+                            is_active=True,
+                        )
+                        session.add(listing)
+                        session.commit()
+                        session.refresh(listing)
+                        resolve_listing_region(session, listing)
+                        session.commit()
+
+                        if parsed["price_czk"]:
+                            session.add(PriceHistory(listing_id=listing.id, price_czk=parsed["price_czk"], recorded_at=now))
+
+                        run.items_new += 1
+                        new_listing_ids.append(listing.id)
+                    else:
+                        existing.last_seen_at = now
+                        existing.is_active = True
+                        existing.removed_at = None
+                        # Refresh unit evidence even when the numeric price is unchanged.
+                        # Missing/unknown current evidence must not inherit an old unit.
+                        existing.price_czk_unit = parsed["price_czk_unit"]
+                        if parsed.get("source_url"):
+                            existing.source_url = parsed["source_url"]
+                        if parsed["price_czk"] and parsed["price_czk"] != existing.price_czk:
+                            session.add(PriceHistory(listing_id=existing.id, price_czk=parsed["price_czk"], recorded_at=now))
+                            existing.price_czk = parsed["price_czk"]
+                            run.items_updated += 1
+                        if parsed.get("gps_lat") is not None:
+                            existing.gps_lat = parsed["gps_lat"]
+                        if parsed.get("gps_lon") is not None:
+                            existing.gps_lon = parsed["gps_lon"]
+                        resolve_listing_region(session, existing)
+                        session.add(existing)
+
+                    session.commit()
+                except Exception as exc:
+                    session.rollback()
+                    run.error_count += 1
+                    _log_item_failure(
+                        session,
+                        run.id,
+                        hash_id,
+                        IngestStage.persist,
+                        f"Persist selhal: {exc}",
                     )
-                    session.add(listing)
                     session.commit()
-                    session.refresh(listing)
-                    resolve_listing_region(session, listing)
-                    session.commit()
-
-                    if parsed["price_czk"]:
-                        session.add(PriceHistory(listing_id=listing.id, price_czk=parsed["price_czk"], recorded_at=now))
-
-                    run.items_new += 1
-                    new_listing_ids.append(listing.id)
-                else:
-                    existing.last_seen_at = now
-                    existing.is_active = True
-                    existing.removed_at = None
-                    # Refresh unit evidence even when the numeric price is unchanged.
-                    # Missing/unknown current evidence must not inherit an old unit.
-                    existing.price_czk_unit = parsed["price_czk_unit"]
-                    if parsed.get("source_url"):
-                        existing.source_url = parsed["source_url"]
-                    if parsed["price_czk"] and parsed["price_czk"] != existing.price_czk:
-                        session.add(PriceHistory(listing_id=existing.id, price_czk=parsed["price_czk"], recorded_at=now))
-                        existing.price_czk = parsed["price_czk"]
-                        run.items_updated += 1
-                    if parsed.get("gps_lat") is not None:
-                        existing.gps_lat = parsed["gps_lat"]
-                    if parsed.get("gps_lon") is not None:
-                        existing.gps_lon = parsed["gps_lon"]
-                    resolve_listing_region(session, existing)
-                    session.add(existing)
-
-                session.commit()
+                    continue
 
             if interrupted_by_shutdown:
                 break

@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
+from sqlalchemy import BigInteger, Column
 from sqlmodel import Field, SQLModel
 
 
@@ -18,7 +19,8 @@ class Listing(SQLModel, table=True):
     category_sub_cb: Optional[int] = Field(default=None, index=True)  # dispozice (1+kk, 2+1, ...)
 
     title: Optional[str] = None
-    price_czk: Optional[int] = Field(default=None, index=True)
+    # BigInteger: luxury / commercial list prices can exceed PostgreSQL INTEGER.
+    price_czk: Optional[int] = Field(default=None, sa_column=Column(BigInteger(), index=True))
     price_czk_unit: Optional[str] = None
     currency: str = "CZK"
 

@@ -224,12 +224,26 @@ export const api = {
     getJson<RunItemLog[]>(`/scraping/runs/${runId}/items${toQuery({ limit })}`),
   triggerScraping: async (): Promise<{ message: string }> => {
     const res = await fetchWithTimeout(`${BASE}/scraping/trigger`, { method: "POST" });
-    if (!res.ok) throw new Error("Spuštění scrapingu selhalo");
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error(
+          "Spuštění scrapingu selhalo (401): API klíč se nedostal na backend. Zkontrolujte Vercel middleware / API_KEY."
+        );
+      }
+      throw new Error(`Spuštění scrapingu selhalo (${res.status})`);
+    }
     return res.json();
   },
   triggerMissingDetailBackfill: async (): Promise<{ message: string }> => {
     const res = await fetchWithTimeout(`${BASE}/scraping/backfill-missing-details`, { method: "POST" });
-    if (!res.ok) throw new Error("Spuštění doplnění detailů selhalo");
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error(
+          "Spuštění doplnění detailů selhalo (401): API klíč se nedostal na backend. Zkontrolujte Vercel middleware / API_KEY."
+        );
+      }
+      throw new Error(`Spuštění doplnění detailů selhalo (${res.status})`);
+    }
     return res.json();
   },
 

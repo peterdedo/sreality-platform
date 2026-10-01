@@ -4,6 +4,10 @@
  *
  * Set the same API_KEY on Vercel (server/edge env) and Railway.
  * Local Vite uses vite.config.ts proxy injection instead.
+ *
+ * IMPORTANT: headers must be set under `request.headers` so they are forwarded
+ * to the Railway rewrite. Top-level `headers` are response headers and never
+ * reach the backend (that caused production 401 on trigger/backfill).
  */
 import { next } from "@vercel/edge";
 
@@ -30,9 +34,12 @@ export default function middleware(request) {
     );
   }
 
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("X-API-Key", apiKey);
+
   return next({
-    headers: {
-      "X-API-Key": apiKey,
+    request: {
+      headers: requestHeaders,
     },
   });
 }
