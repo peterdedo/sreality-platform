@@ -7,13 +7,19 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { probeBackendReachability, type BackendReachability } from "../api/connectivity";
+import {
+  probeBackendReachability,
+  probeScrapeBusy,
+  type BackendReachability,
+} from "../api/connectivity";
 
 type BackendStatusContextValue = {
   /** True when production probe detected missing or unreachable backend. */
   backendUnavailable: boolean;
   /** Reason from the last failed probe (production only). */
   unavailableReason: "not_configured" | "database_unavailable" | "down" | "timeout" | null;
+  /** True when /health reports scrape_busy (advisory lock held). */
+  scrapeBusy: boolean;
   checking: boolean;
   retry: () => void;
 };
@@ -21,38 +27,60 @@ type BackendStatusContextValue = {
 const BackendStatusContext = createContext<BackendStatusContextValue>({
   backendUnavailable: false,
   unavailableReason: null,
+  scrapeBusy: false,
   checking: false,
   retry: () => undefined,
 });
 
 const RECHECK_INTERVAL_MS = 60_000;
+const SCRAPE_BUSY_POLL_MS = 20_000;
 
 export function BackendStatusProvider({ children }: PropsWithChildren) {
   const isProduction = import.meta.env.PROD;
   const [reachability, setReachability] = useState<BackendReachability>(
-    isProduction ? { state: "checking" } : { state: "available" }
+    isProduction ? { state: "checking" } : { state: "available", scrapeBusy: false }
   );
+  const [scrapeBusy, setScrapeBusy] = useState(false);
 
   const runProbe = useCallback(async () => {
     if (!isProduction) {
-      setReachability({ state: "available" });
+      setReachability({ state: "available", scrapeBusy: false });
       return;
     }
     setReachability({ state: "checking" });
     const result = await probeBackendReachability();
     setReachability(result);
+    if (result.state === "available") {
+      setScrapeBusy(result.scrapeBusy);
+    }
   }, [isProduction]);
+
+  const runScrapeBusyProbe = useCallback(async () => {
+    const busy = await probeScrapeBusy();
+    setScrapeBusy(busy);
+  }, []);
 
   useEffect(() => {
     void runProbe();
-    if (!isProduction) return undefined;
+    void runScrapeBusyProbe();
+
+    const scrapeIntervalId = window.setInterval(() => {
+      void runScrapeBusyProbe();
+    }, SCRAPE_BUSY_POLL_MS);
+
+    if (!isProduction) {
+      return () => window.clearInterval(scrapeIntervalId);
+    }
 
     const intervalId = window.setInterval(() => {
       void runProbe();
     }, RECHECK_INTERVAL_MS);
 
-    return () => window.clearInterval(intervalId);
-  }, [isProduction, runProbe]);
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearInterval(scrapeIntervalId);
+    };
+  }, [isProduction, runProbe, runScrapeBusyProbe]);
 
   const value = useMemo<BackendStatusContextValue>(() => {
     const unavailable =
@@ -61,12 +89,14 @@ export function BackendStatusProvider({ children }: PropsWithChildren) {
     return {
       backendUnavailable: unavailable != null,
       unavailableReason: unavailable?.reason ?? null,
+      scrapeBusy,
       checking: isProduction && reachability.state === "checking",
       retry: () => {
         void runProbe();
+        void runScrapeBusyProbe();
       },
     };
-  }, [isProduction, reachability, runProbe]);
+  }, [isProduction, reachability, runProbe, runScrapeBusyProbe, scrapeBusy]);
 
   return <BackendStatusContext.Provider value={value}>{children}</BackendStatusContext.Provider>;
 }

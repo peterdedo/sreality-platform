@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
-import { api } from "../api/client";import type { RunItemLog, ScrapingRun } from "../api/types";
+import { api } from "../api/client";
+import type { RunItemLog, ScrapingRun } from "../api/types";
 import { OperatorNextStep } from "../components/OperatorNextStep";
 import { PanelInsight } from "../components/kpi/KpiInterpretationLine";
 import { DatasetCoverageBanner } from "../components/DatasetCoverageBanner";
@@ -8,6 +9,7 @@ import { PageContainer } from "../components/layout/PageContainer";
 import { ErrorState, LoadingState } from "../components/StateHelpers";
 import { useAsync } from "../hooks/useAsync";
 import { useDatasetSummary } from "../hooks/useDatasetSummary";
+import { useBackendStatus } from "../context/BackendStatusProvider";
 import { cs } from "../locale/cs";
 import { formatDate } from "../constants";
 import { StatusBanner, Panel } from "../components/ui/primitives";
@@ -87,10 +89,12 @@ export function SpravaScrapingu() {
   const [expandedRunId, setExpandedRunId] = useState<number | null>(null);
   const { data, loading, error, refreshing } = useAsync(() => api.scrapingRuns(50), [refreshKey, pollKey]);
   const summary = useDatasetSummary();
+  const { scrapeBusy } = useBackendStatus();
 
   const hasRunning = data?.some((r) => r.status === "running") ?? false;
   const backfillRun = activeBackfillRun(data);
   const shouldPollSummary = hasRunning || summary.data?.dataset_freshness === "in_progress";
+  const showScrapeBusyWarning = scrapeBusy || hasRunning;
 
   useEffect(() => {
     if (!shouldPollSummary) return;
@@ -141,6 +145,9 @@ export function SpravaScrapingu() {
     >
       {summary.data && <DatasetCoverageBanner summary={summary.data} collapsible />}
       <RefreshIndicator active={refreshing || summary.refreshing} />
+      {showScrapeBusyWarning && (
+        <StatusBanner variant="warning">{cs.scraping.scrapeBusyUpozorneni}</StatusBanner>
+      )}
       {message && <div className={successBanner}>{message}</div>}
       <p className="text-xs text-ink-muted mb-3 max-w-2xl">{cs.scraping.doplnitDetailyPoznamka}</p>
 

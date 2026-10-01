@@ -2,7 +2,7 @@
 
 export type BackendReachability =
   | { state: "checking" }
-  | { state: "available" }
+  | { state: "available"; scrapeBusy: boolean }
   | { state: "unavailable"; reason: "not_configured" | "database_unavailable" | "down" | "timeout" };
 
 const PROBE_TIMEOUT_MS = 25_000;
@@ -17,43 +17,40 @@ async function fetchWithTimeout(url: string, timeoutMs = PROBE_TIMEOUT_MS): Prom
   }
 }
 
-async function probeHealthEndpoint(): Promise<"ok" | "database_unavailable" | "unreachable"> {
+type HealthProbeResult =
+  | { kind: "ok"; scrapeBusy: boolean }
+  | { kind: "database_unavailable" }
+  | { kind: "unreachable" };
+
+async function probeHealthEndpoint(): Promise<HealthProbeResult> {
   try {
     const res = await fetchWithTimeout("/health");
     const contentType = res.headers.get("content-type") ?? "";
-    if (!contentType.includes("application/json")) return "unreachable";
-    const body = (await res.json()) as { status?: string; database?: string };
-    if (res.ok && body.status === "ok") return "ok";
-    if (body.status === "degraded" && body.database === "unavailable") {
-      return "database_unavailable";
+    if (!contentType.includes("application/json")) return { kind: "unreachable" };
+    const body = (await res.json()) as { status?: string; database?: string; scrape_busy?: boolean };
+    if (res.ok && body.status === "ok") {
+      return { kind: "ok", scrapeBusy: Boolean(body.scrape_busy) };
     }
-    return "unreachable";
+    if (body.status === "degraded" && body.database === "unavailable") {
+      return { kind: "database_unavailable" };
+    }
+    return { kind: "unreachable" };
   } catch {
-    return "unreachable";
-  }
-}
-
-async function probeDatasetSummary(): Promise<boolean> {
-  try {
-    const res = await fetchWithTimeout("/api/analytics/dataset-summary");
-    return res.ok;
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") return false;
-    return false;
+    return { kind: "unreachable" };
   }
 }
 
 /** Try /health (Railway + Vercel proxy), then /api/analytics/dataset-summary. */
 export async function probeBackendReachability(): Promise<BackendReachability> {
   const health = await probeHealthEndpoint();
-  if (health === "ok") return { state: "available" };
-  if (health === "database_unavailable") {
+  if (health.kind === "ok") return { state: "available", scrapeBusy: health.scrapeBusy };
+  if (health.kind === "database_unavailable") {
     return { state: "unavailable", reason: "database_unavailable" };
   }
 
   try {
     const res = await fetchWithTimeout("/api/analytics/dataset-summary");
-    if (res.ok) return { state: "available" };
+    if (res.ok) return { state: "available", scrapeBusy: false };
     if (res.status === 404) return { state: "unavailable", reason: "not_configured" };
     return { state: "unavailable", reason: "down" };
   } catch (error) {
@@ -61,6 +58,19 @@ export async function probeBackendReachability(): Promise<BackendReachability> {
       return { state: "unavailable", reason: "timeout" };
     }
     return { state: "unavailable", reason: "down" };
+  }
+}
+
+/** Lightweight /health poll for scrape_busy (works in local + production). */
+export async function probeScrapeBusy(): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout("/health", 10_000);
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) return false;
+    const body = (await res.json()) as { scrape_busy?: boolean };
+    return Boolean(body.scrape_busy);
+  } catch {
+    return false;
   }
 }
 

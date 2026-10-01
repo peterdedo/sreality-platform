@@ -351,6 +351,8 @@ export const cs = {
     titulek: "Správa scrapingu",
     podtitulek: "Operační přehled běhů scrapingu, doplnění detailů a stavu datasetu.",
     spustitScraping: "Spustit scraping",
+    scrapeBusyUpozorneni:
+      "Scraping právě běží na backendu. Nenasazujte novou verzi API a znovu nespouštějte „Spustit scraping“ — počkejte na dokončení, nebo počítejte s přerušením (stav „částečně úspěšný“).",
     doplnitDetaily: "Doplnit chybějící detaily",
     doplnitDetailyPoznamka:
       "Doplní detail (plocha, dispozice, popis…) u aktivních nabídek, které ho ještě nemají. Může běžet i několik hodin — je bezpečné spustit ho znovu kdykoli, i po přerušení: doplní jen to, co ještě chybí.",

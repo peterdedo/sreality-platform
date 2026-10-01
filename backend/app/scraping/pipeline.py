@@ -25,7 +25,12 @@ from app.scraping.parser import parse_detail, parse_list_item
 from app.scraping.region_backfill import resolve_listing_region
 from app.scraping.sreality_url import build_public_listing_url
 from app.scraping.locks import BACKFILL_LOCK_ID, SWEEP_LOCK_ID
-from app.scraping.orphan_runs import register_active_run, unregister_active_run
+from app.scraping.orphan_runs import (
+    SHUTDOWN_PARTIAL_MESSAGE,
+    is_scrape_shutdown_requested,
+    register_active_run,
+    unregister_active_run,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +84,13 @@ async def _fetch_search_query(
             category_label, total_results, settings.scrape_offset_cap,
         )
     while offset < min(total_results, settings.scrape_offset_cap):
+        if is_scrape_shutdown_requested():
+            logger.info(
+                "Shutdown requested — stopping page fetch for %s at offset %d",
+                category_label,
+                offset,
+            )
+            break
         url = f"{base}&per_page={per_page}&offset={offset}"
         try:
             data = await client.get_json(url)
@@ -185,13 +197,16 @@ async def _fetch_category_estates(
     estates_by_hash: dict[str, dict] = {}
     pages_fetched = 0
     for label, query_params in queries:
+        if is_scrape_shutdown_requested():
+            logger.info("Shutdown requested — stopping fan-out for %s", category["name"])
+            break
         batch, pages = await _fetch_search_query(client, query_params, session, run, label)
         pages_fetched += pages
         for item in batch:
             hash_id = str(item.get("hash_id"))
             estates_by_hash.setdefault(hash_id, item)
 
-    if probe_total > 0:
+    if probe_total > 0 and not is_scrape_shutdown_requested():
         gap = probe_total - len(estates_by_hash)
         if gap > 0:
             gap_pct = gap / probe_total * 100
@@ -257,11 +272,19 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
     client = SrealityClient()
     seen_hash_ids: set[str] = set()
     new_listing_ids: list[int] = []
+    interrupted_by_shutdown = False
 
     try:
         for category in categories:
+            if is_scrape_shutdown_requested():
+                interrupted_by_shutdown = True
+                logger.info("Shutdown requested — stopping incremental scrape after current work")
+                break
+
             raw_estates, pages = await _fetch_category_estates(client, category, session, run)
             run.pages_fetched += pages
+            if is_scrape_shutdown_requested():
+                interrupted_by_shutdown = True
 
             for raw in raw_estates:
                 if not _validate(raw):
@@ -337,13 +360,19 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
 
                 session.commit()
 
+            if interrupted_by_shutdown:
+                break
+
         # Delisting detection: any active listing in these categories not seen in
         # this sweep is marked removed. Only safe to run when scraping *all*
         # categories in one pass (partial category runs would falsely flag others).
         # Skip entirely when any coverage_gap was logged — unrecovered fan-out
         # residuals (~1–2%) would otherwise be false-delisted.
+        # Also skip when interrupted by shutdown — incomplete seen set.
         had_coverage_gap = False
-        if categories == CATEGORY_COMBINATIONS:
+        if interrupted_by_shutdown:
+            logger.info("Skipping delisting — scrape interrupted by shutdown")
+        elif categories == CATEGORY_COMBINATIONS:
             gap_count = session.exec(
                 select(RunItemLog).where(
                     RunItemLog.run_id == run.id,
@@ -374,7 +403,10 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
                         run.items_removed += 1
                 session.commit()
 
-        if run.error_count > 0 or had_coverage_gap:
+        if interrupted_by_shutdown:
+            run.status = RunStatus.partial
+            run.error_message = SHUTDOWN_PARTIAL_MESSAGE
+        elif run.error_count > 0 or had_coverage_gap:
             run.status = RunStatus.partial
             if had_coverage_gap and not run.error_message:
                 run.error_message = (
@@ -395,7 +427,7 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
         session.refresh(run)
         _release_lock(session, SWEEP_LOCK_ID)
 
-    if new_listing_ids:
+    if new_listing_ids and not interrupted_by_shutdown:
         await run_detail_backfill(session, new_listing_ids)
 
     return run
@@ -422,8 +454,14 @@ async def run_detail_backfill(session: Session, listing_ids: list[int]) -> Scrap
 
     register_active_run(run.id)
     client = SrealityClient()
+    interrupted_by_shutdown = False
     try:
         for listing_id in listing_ids:
+            if is_scrape_shutdown_requested():
+                interrupted_by_shutdown = True
+                logger.info("Shutdown requested — stopping detail backfill")
+                break
+
             listing = session.get(Listing, listing_id)
             if listing is None:
                 continue
@@ -510,7 +548,10 @@ async def run_detail_backfill(session: Session, listing_ids: list[int]) -> Scrap
         # items succeeded and some failed it's partial (the operator needs to
         # know some details are still missing); if everything failed (e.g. the
         # upstream API was down for the whole run) it's failed, not success.
-        if run.error_count == 0:
+        if interrupted_by_shutdown:
+            run.status = RunStatus.partial
+            run.error_message = SHUTDOWN_PARTIAL_MESSAGE
+        elif run.error_count == 0:
             run.status = RunStatus.success
         elif run.items_seen > 0:
             run.status = RunStatus.partial

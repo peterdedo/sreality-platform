@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from datetime import datetime, timedelta
 
 from sqlalchemy import text
@@ -23,15 +24,39 @@ from app.scraping.locks import BACKFILL_LOCK_ID, SWEEP_LOCK_ID
 logger = logging.getLogger(__name__)
 
 ORPHAN_RUN_MESSAGE = (
-    "Běh byl přerušen (restart nebo pád backendu). Worker již neběží; "
-    "data ingestovaná před přerušením zůstávají v datasetu."
+    "Běh byl přerušen neočekávaně (pád procesu). Worker již neběží; "
+    "data ingestovaná před přerušením zůstávají v datasetu. "
+    "Bezpečné spustit znovu."
+)
+
+SHUTDOWN_PARTIAL_MESSAGE = (
+    "Běh byl přerušen kvůli nasazení nebo restartu služby (graceful shutdown). "
+    "Data ingestovaná před přerušením zůstávají v datasetu. "
+    "Bezpečné spustit znovu — doplní jen zbývající práci."
 )
 
 _active_run_ids: set[int] = set()
+_shutdown_requested = threading.Event()
 
-# Default wait on SIGTERM / lifespan shutdown while a scrape still holds a lock.
-DRAIN_TIMEOUT_SECONDS = 90
+# Wait on SIGTERM / lifespan shutdown while scrape finishes the current page
+# and releases the advisory lock (not long enough for a full sweep).
+DRAIN_TIMEOUT_SECONDS = 150
 DRAIN_POLL_SECONDS = 2
+
+
+def request_scrape_shutdown() -> None:
+    """Signal in-flight scrape/backfill to stop after the current page/item."""
+    _shutdown_requested.set()
+    logger.info("Scrape shutdown requested (cooperative cancel)")
+
+
+def clear_scrape_shutdown_request() -> None:
+    """Reset shutdown flag (new process start / tests)."""
+    _shutdown_requested.clear()
+
+
+def is_scrape_shutdown_requested() -> bool:
+    return _shutdown_requested.is_set()
 
 
 def register_active_run(run_id: int) -> None:

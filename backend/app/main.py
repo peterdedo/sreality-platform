@@ -18,8 +18,10 @@ from app.scheduler import scheduler, start_scheduler
 from app.analytics.advanced.pipeline import reconcile_orphaned_analytics_runs
 from app.scraping.orphan_runs import (
     any_scrape_lock_held,
+    clear_scrape_shutdown_request,
     drain_scrape_locks,
     reconcile_orphaned_scrape_runs,
+    request_scrape_shutdown,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,15 +56,17 @@ async def lifespan(app: FastAPI):
     # migration drift (see app/core/db.py and the audit's Theme 4).
     if not settings.is_production:
         init_db()
+    clear_scrape_shutdown_request()
     with Session(engine) as session:
         reconcile_orphaned_scrape_runs(session)
         reconcile_orphaned_analytics_runs(session)
     start_scheduler()
     yield
-    # Graceful drain on redeploy/SIGTERM: give an in-flight sweep/backfill a
-    # short window before the process is killed (Railway single-service model).
+    # Graceful drain on redeploy/SIGTERM: ask scrape to stop after the current
+    # page, then wait briefly for locks to clear (Railway single-service model).
     if scheduler.running:
         scheduler.shutdown(wait=False)
+    request_scrape_shutdown()
     drained = await drain_scrape_locks()
     if not drained:
         logger.warning("Shutdown proceeding while scrape work may still be active")

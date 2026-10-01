@@ -27,11 +27,11 @@ There is **no** separate `full_scrape` job (it was redundant with incremental).
 
 ## Redeploy / drain
 
-The API process is a single Railway service. On shutdown the lifespan waits up to **90s** for scrape advisory locks to clear. Prefer:
+The API process is a single Railway service. On SIGTERM the lifespan **requests cooperative scrape shutdown** (finish current page/item → `partial` with a clear redeploy message), then waits up to **150s** for scrape advisory locks to clear. Prefer:
 
 1. Do not click „Spustit scraping“ immediately before a redeploy.
-2. Prefer redeploying outside the 02:00–05:00 scrape/prune window.
-3. After an interrupted run, orphan reconciliation on startup closes stale `running` rows as `partial`/`failed`.
+2. Prefer redeploying outside the 02:00–05:00 scrape/prune window. If `GET /health` shows `scrape_busy: true`, wait for the run to finish or accept a `partial` result.
+3. Soft shutdown uses a redeploy-specific message; hard kill (process dies before the flag is checked) is closed on next startup by orphan reconciliation with a different message.
 
 Manual prune (disk pressure):
 
