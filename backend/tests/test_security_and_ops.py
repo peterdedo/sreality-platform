@@ -71,15 +71,45 @@ def test_read_endpoint_does_not_require_api_key(client):
 
 # --- T2: rate limiting ---------------------------------------------------
 
+def test_heavy_limiter_request_annotation_is_live_type():
+    """Regression: postponed annotations turned ``request`` into a query field
+    and production POST /api/scraping/trigger returned 422 Field required."""
+    import inspect
+
+    from fastapi import Request
+
+    from app.api.rate_limit import heavy_endpoint_limiter
+
+    hints = inspect.signature(heavy_endpoint_limiter).parameters["request"].annotation
+    assert hints is Request, hints
+
+
+def test_trigger_with_api_key_does_not_require_request_query(client, monkeypatch):
+    from app.api import scraping
+
+    monkeypatch.setattr(scraping, "_run_incremental_scrape_in_background", lambda: None)
+    resp = client.post("/api/scraping/trigger", headers={"X-API-Key": settings.api_key})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["message"]
+
+
+def test_backfill_with_api_key_does_not_require_request_query(client, monkeypatch):
+    from app.api import scraping
+
+    monkeypatch.setattr(scraping, "_run_missing_detail_backfill_in_background", lambda: None)
+    resp = client.post(
+        "/api/scraping/backfill-missing-details",
+        headers={"X-API-Key": settings.api_key},
+    )
+    assert resp.status_code == 200, resp.text
+
+
 def test_rate_limit_returns_429_after_threshold(client, monkeypatch):
     from app.api import rate_limit, scraping
 
     # Neutralize the background scrape the trigger would otherwise queue: under
     # TestClient BackgroundTasks run after the response and would attempt a real
     # DB/network scrape. We only care about the HTTP status here.
-    async def _noop():
-        return None
-
     monkeypatch.setattr(scraping, "_run_incremental_scrape_in_background", lambda: None)
 
     limiter = rate_limit.heavy_endpoint_limiter

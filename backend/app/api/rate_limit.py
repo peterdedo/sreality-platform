@@ -2,13 +2,17 @@
 
 Uses Redis when ``REDIS_URL`` is reachable; otherwise falls back to an
 in-process fixed-window counter (adequate for the single-worker Railway layout).
-"""
 
-from __future__ import annotations
+IMPORTANT: Do not add ``from __future__ import annotations`` here. FastAPI
+dependency injection must see a live ``Request`` type object on ``__call__``;
+postponed/string annotations make ``request`` look like a required query
+param and break POST /api/scraping/trigger (and other heavy routes) with 422.
+"""
 
 import logging
 import time
 from collections import defaultdict
+from typing import Union
 
 from fastapi import HTTPException, Request, status
 
@@ -86,7 +90,7 @@ class RedisRateLimiter:
             logger.warning("Redis rate limit failed (%s); allowing request", exc)
 
 
-def _build_heavy_limiter() -> InMemoryRateLimiter | RedisRateLimiter:
+def _build_heavy_limiter() -> Union[InMemoryRateLimiter, RedisRateLimiter]:
     max_requests = 10
     window_seconds = 60
     try:
