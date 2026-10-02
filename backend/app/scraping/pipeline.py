@@ -376,55 +376,83 @@ async def run_incremental_scrape(session: Session, categories: list[dict] | None
             if interrupted_by_shutdown:
                 break
 
-        # Delisting detection: any active listing in these categories not seen in
-        # this sweep is marked removed. Only safe to run when scraping *all*
-        # categories in one pass (partial category runs would falsely flag others).
-        # Skip entirely when any coverage_gap was logged — unrecovered fan-out
-        # residuals (~1–2%) would otherwise be false-delisted.
-        # Also skip when interrupted by shutdown — incomplete seen set.
+        # Delisting: only when scraping *all* categories in one pass. Per-category
+        # eligibility uses coverage_gap thresholds so a structural gap on domy
+        # does not block delisting for near-complete slices like byt/prodej.
+        # Skip entirely when interrupted by shutdown — incomplete seen set.
         had_coverage_gap = False
+        delist_blocked_slices = 0
         if interrupted_by_shutdown:
             logger.info("Skipping delisting — scrape interrupted by shutdown")
         elif categories == CATEGORY_COMBINATIONS:
-            gap_count = session.exec(
+            from app.scraping.coverage_gaps import category_delist_plan
+
+            gap_logs = session.exec(
                 select(RunItemLog).where(
                     RunItemLog.run_id == run.id,
                     RunItemLog.stage == IngestStage.coverage_gap,
                 )
             ).all()
-            had_coverage_gap = len(gap_count) > 0
-            if had_coverage_gap:
-                logger.warning(
-                    "Skipping global delisting — %d coverage_gap log(s) in this sweep",
-                    len(gap_count),
+            had_coverage_gap = len(gap_logs) > 0
+            gap_messages = [log.message or "" for log in gap_logs]
+            to_delist, skipped = category_delist_plan(gap_messages, categories=categories)
+            delist_blocked_slices = len(skipped)
+
+            for cat, gap in skipped:
+                detail = (
+                    f"gap={gap.gap} ({gap.gap_pct}%)"
+                    if gap is not None
+                    else "coverage_gap"
                 )
+                logger.warning("Skipping delisting for %s — %s", cat["name"], detail)
                 _log_item_failure(
                     session,
                     run.id,
                     None,
                     IngestStage.delist_skipped,
-                    f"Delisting přeskočen kvůli {len(gap_count)} coverage_gap záznamům v tomto běhu.",
+                    f"Delisting přeskočen pro {cat['name']}: {detail} nad prahem úplnosti.",
                 )
-                session.commit()
-            else:
-                active_listings = session.exec(select(Listing).where(Listing.is_active == True)).all()  # noqa: E712
+
+            if to_delist:
+                eligible_keys = {
+                    (cat["category_main_cb"], cat["category_type_cb"]) for cat in to_delist
+                }
+                active_listings = session.exec(
+                    select(Listing).where(Listing.is_active == True)  # noqa: E712
+                ).all()
                 for listing in active_listings:
+                    key = (listing.category_main_cb, listing.category_type_cb)
+                    if key not in eligible_keys:
+                        continue
                     if listing.hash_id not in seen_hash_ids:
                         listing.is_active = False
                         listing.removed_at = datetime.utcnow()
                         session.add(listing)
                         run.items_removed += 1
                 session.commit()
+            elif skipped:
+                session.commit()
 
         if interrupted_by_shutdown:
             run.status = RunStatus.partial
             run.error_message = SHUTDOWN_PARTIAL_MESSAGE
-        elif run.error_count > 0 or had_coverage_gap:
+        elif run.error_count > 0 or had_coverage_gap or delist_blocked_slices > 0:
             run.status = RunStatus.partial
             if had_coverage_gap and not run.error_message:
-                run.error_message = (
-                    "Běh dokončen s coverage_gap; globální delisting byl přeskočen."
-                )
+                if delist_blocked_slices and run.items_removed:
+                    run.error_message = (
+                        f"Běh dokončen s coverage_gap; delisting proveden u úplných slice, "
+                        f"přeskočen u {delist_blocked_slices} kategorií."
+                    )
+                elif delist_blocked_slices:
+                    run.error_message = (
+                        f"Běh dokončen s coverage_gap; delisting přeskočen "
+                        f"u {delist_blocked_slices} kategorií nad prahem úplnosti."
+                    )
+                else:
+                    run.error_message = (
+                        "Běh dokončen s coverage_gap; delisting proveden u úplných slice."
+                    )
         else:
             run.status = RunStatus.success
     except Exception as exc:

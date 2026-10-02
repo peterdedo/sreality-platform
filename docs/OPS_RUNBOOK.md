@@ -33,6 +33,10 @@ The API process is a single Railway service. On SIGTERM the lifespan **requests 
 2. Prefer redeploying outside the 02:00–05:00 scrape/prune window. If `GET /health` shows `scrape_busy: true`, wait for the run to finish or accept a `partial` result.
 3. Soft shutdown uses a redeploy-specific message; hard kill (process dies before the flag is checked) is closed on next startup by orphan reconciliation with a different message.
 
+Delisting is **per-category**: a slice may delist when its `coverage_gap` is within threshold (abs ≤ 5 or ≤ 0.05%). Structural gaps on domy/pozemky no longer block byt/prodej delisting. Report gaps with `python -m scripts.report_coverage_gaps <run_id> --api https://sreality-platform.vercel.app/api`.
+
+Index-4 handoff: after a complete-enough sweep + unit backfill, write immutable CSV+manifest via `python -m scripts.export_byty_prodej_snapshot ./exports` or `GET /api/export/snapshots/byty-prodej`.
+
 Manual prune (disk pressure):
 
 ```bash

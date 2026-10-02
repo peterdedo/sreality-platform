@@ -4,6 +4,7 @@ valuation+anomaly). See docs/METHODOLOGY.md for how the underlying metrics
 are computed; this module only serializes what already exists.
 """
 
+import json
 from datetime import date, timedelta
 from typing import Optional
 
@@ -467,4 +468,43 @@ def export_analytics_valuation(
         f"analyticky_export_{date.today().isoformat()}",
         total_matched=total_matched,
         truncated=truncated,
+    )
+
+
+@router.get(
+    "/snapshots/byty-prodej",
+    summary="Neměnný CSV + manifest (byty/prodej) jako ZIP",
+)
+def export_byty_prodej_snapshot(
+    session: Session = Depends(get_session),
+    scrape_run_id: Optional[int] = Query(None, description="Volitelné ID scrapovacího běhu do manifestu"),
+):
+    """Versioned artifact for index-4 handoff: UTF-8-BOM CSV + JSON manifest (sha256, period, row_count)."""
+    import io
+    import zipfile
+    from datetime import datetime, timezone
+
+    from app.scraping.snapshot_export import build_byty_prodej_snapshot
+
+    try:
+        csv_bytes, manifest = build_byty_prodej_snapshot(session, scrape_run_id=scrape_run_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"byty_prodej_active_{stamp}.csv", csv_bytes)
+        zf.writestr(
+            f"byty_prodej_active_{stamp}.manifest.json",
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        )
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="byty_prodej_active_{stamp}.zip"',
+            "X-Export-Row-Count": str(manifest["row_count"]),
+            "X-Export-SHA256": manifest["sha256"],
+        },
     )

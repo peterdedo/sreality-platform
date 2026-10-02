@@ -44,7 +44,7 @@ def parse_list_item(estate: dict[str, Any]) -> dict[str, Any]:
         "category_type_cb": _safe_int(category_type_cb) or 0,
         "category_sub_cb": _safe_int(category_sub_cb),
         "price_czk": _safe_int(price_obj.get("value_raw") or estate.get("price_czk") or estate.get("price")),
-        "price_czk_unit": price_obj.get("unit"),
+        "price_czk_unit": _extract_price_czk_unit(estate, price_obj),
         "gps_lat": _safe_float(gps_lat),
         "gps_lon": _safe_float(gps_lon),
         "locality": locality_text,
@@ -166,6 +166,24 @@ def parse_detail(payload: dict[str, Any]) -> dict[str, Any]:
     detail["images"] = images
 
     return detail
+
+
+def _extract_price_czk_unit(estate: dict[str, Any], price_obj: dict[str, Any]) -> Optional[str]:
+    """Currency / unit label from list payload — never invent a default.
+
+    Legacy list shape: ``price_czk: {value_raw, unit}``.
+    Current v1 shape: ``price_czk`` is a number; currency lives in
+    ``price_currency_cb.name`` (e.g. \"Kč\").
+    """
+    unit = price_obj.get("unit") if price_obj else None
+    if isinstance(unit, str) and unit.strip():
+        return unit.strip()
+    currency_cb = estate.get("price_currency_cb")
+    if isinstance(currency_cb, dict):
+        name = currency_cb.get("name")
+        if isinstance(name, str) and name.strip():
+            return name.strip()
+    return None
 
 
 def _extract_leading_int(value: Any) -> Optional[int]:

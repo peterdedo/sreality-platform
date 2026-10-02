@@ -17,6 +17,7 @@ from app.schemas.scraping import (
 )
 from app.scraping.orphan_runs import reconcile_orphaned_scrape_runs
 from app.scraping.pipeline import run_incremental_scrape, run_missing_detail_backfill
+from app.scraping.price_unit_backfill import backfill_price_units_from_list
 from app.scraping.prune import prune_list_raw_payloads
 
 router = APIRouter(prefix="/scraping", tags=["scraping"])
@@ -85,6 +86,16 @@ def _run_missing_detail_backfill_in_background() -> None:
     asyncio.run(_run())
 
 
+def _run_price_unit_backfill_in_background() -> None:
+    async def _run() -> None:
+        with Session(engine) as session:
+            result = await backfill_price_units_from_list(session)
+            logger = __import__("logging").getLogger(__name__)
+            logger.info("Price unit backfill finished: %s", result)
+
+    asyncio.run(_run())
+
+
 @router.post(
     "/trigger",
     response_model=TriggerRunResponse,
@@ -110,3 +121,17 @@ def trigger_missing_detail_backfill(background_tasks: BackgroundTasks):
     backfill so it can't run twice at once."""
     background_tasks.add_task(_run_missing_detail_backfill_in_background)
     return TriggerRunResponse(message="Doplnění chybějících detailů bylo spuštěno na pozadí.")
+
+
+@router.post(
+    "/backfill-price-units",
+    summary="Doplnit price_czk_unit z živého list API (byty/prodej)",
+    dependencies=[Depends(require_api_key), Depends(heavy_endpoint_limiter)],
+)
+def trigger_price_unit_backfill(background_tasks: BackgroundTasks):
+    """Re-fetches byt/prodej list pages and sets price_czk_unit only when the
+    live payload carries currency evidence (never invents Kč)."""
+    background_tasks.add_task(_run_price_unit_backfill_in_background)
+    return {
+        "message": "Doplnění price_czk_unit z list API bylo spuštěno na pozadí.",
+    }

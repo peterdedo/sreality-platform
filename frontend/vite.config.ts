@@ -29,7 +29,7 @@ export default defineConfig(({ mode }) => {
             proxy.on("proxyReq", (proxyReq, req) => {
               const path = req.url ?? "";
               const needsKey =
-                /\/scraping\/(trigger|backfill-missing-details|reconcile-orphaned-runs|prune-raw-payloads)/.test(
+                /\/scraping\/(trigger|backfill-missing-details|backfill-price-units|reconcile-orphaned-runs|prune-raw-payloads)/.test(
                   path,
                 ) ||
                 /\/analytics\/advanced\/recompute/.test(path) ||

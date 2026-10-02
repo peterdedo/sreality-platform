@@ -12,7 +12,7 @@
 import { next } from "@vercel/edge";
 
 const PROTECTED_PATHS = [
-  /^\/api\/scraping\/(trigger|backfill-missing-details|reconcile-orphaned-runs|prune-raw-payloads)\/?$/,
+  /^\/api\/scraping\/(trigger|backfill-missing-details|backfill-price-units|reconcile-orphaned-runs|prune-raw-payloads)\/?$/,
   /^\/api\/analytics\/advanced\/recompute\/?$/,
   /^\/api\/export\//,
 ];
@@ -48,6 +48,7 @@ export const config = {
   matcher: [
     "/api/scraping/trigger",
     "/api/scraping/backfill-missing-details",
+    "/api/scraping/backfill-price-units",
     "/api/scraping/reconcile-orphaned-runs",
     "/api/scraping/prune-raw-payloads",
     "/api/analytics/advanced/recompute",

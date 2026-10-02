@@ -19,8 +19,33 @@ def test_parse_list_item_basic():
     assert parsed["category_type_cb"] == 1
     assert parsed["category_sub_cb"] == 4
     assert parsed["price_czk"] == 5000000
+    assert parsed["price_czk_unit"] == "Kč"
     assert parsed["gps_lat"] == 50.08
     assert parsed["gps_lon"] == 14.43
+
+
+def test_parse_list_item_v1_price_currency_cb():
+    """Current sreality v1 returns price_czk as a number + price_currency_cb."""
+    raw = {
+        "hash_id": 999,
+        "advert_name": "Prodej bytu",
+        "category_main_cb": {"value": 1},
+        "category_type_cb": {"value": 1},
+        "category_sub_cb": {"value": 4},
+        "price_czk": 9_500_000.0,
+        "price_currency_cb": {"name": "Kč", "value": 1},
+        "price_unit_cb": {"name": "za nemovitost", "value": 1},
+        "gps": {"lat": 50.0, "lon": 14.0},
+    }
+    parsed = parse_list_item(raw)
+    assert parsed["price_czk"] == 9_500_000
+    assert parsed["price_czk_unit"] == "Kč"
+
+
+def test_parse_list_item_no_invented_unit():
+    raw = {"hash_id": 1, "name": "x", "seo": {}, "price_czk": 100}
+    parsed = parse_list_item(raw)
+    assert parsed["price_czk_unit"] is None
 
 
 def test_parse_list_item_missing_fields_defaults():
