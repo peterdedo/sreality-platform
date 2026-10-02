@@ -35,7 +35,7 @@ The API process is a single Railway service. On SIGTERM the lifespan **requests 
 
 Delisting is **per-category**: a slice may delist when its `coverage_gap` is within threshold (abs ≤ 5 or ≤ 0.05%). Structural gaps on domy/pozemky no longer block byt/prodej delisting. Report gaps with `python -m scripts.report_coverage_gaps <run_id> --api https://sreality-platform.vercel.app/api`.
 
-Index-4 handoff: after a complete-enough sweep + unit backfill, write immutable CSV+manifest via `python -m scripts.export_byty_prodej_snapshot ./exports` or `GET /api/export/snapshots/byty-prodej`.
+Index-4 handoff: after a complete-enough sweep + unit backfill, write immutable CSV+manifest via `python -m scripts.export_byty_prodej_snapshot ./exports` or `GET /api/export/snapshots/byty-prodej`. Manifest includes `price_czk_unit_counts` / `price_czk_unit_non_czk_counts` — EUR/USD must not be treated as Kč by importers.
 
 Manual prune (disk pressure):
 

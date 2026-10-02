@@ -81,6 +81,16 @@ def build_byty_prodej_snapshot(
         schema_revision = None
 
     with_unit = sum(1 for listing in listings if listing.price_czk_unit)
+    unit_counts: dict[str, int] = {}
+    for listing in listings:
+        key = listing.price_czk_unit if listing.price_czk_unit else "(missing)"
+        unit_counts[key] = unit_counts.get(key, 0) + 1
+    # Exotic currencies stay as-is in CSV; never rewrite to Kč.
+    non_czk = {
+        unit: count
+        for unit, count in unit_counts.items()
+        if unit not in ("Kč", "(missing)", "Kc")
+    }
     manifest = {
         "artifact": "byty_prodej_active_raw_csv",
         "filters": {
@@ -99,6 +109,12 @@ def build_byty_prodej_snapshot(
         "scrape_run_id": scrape_run_id,
         "price_czk_unit_populated": with_unit,
         "price_czk_unit_missing": len(listings) - with_unit,
+        "price_czk_unit_counts": dict(sorted(unit_counts.items(), key=lambda kv: (-kv[1], kv[0]))),
+        "price_czk_unit_non_czk_counts": non_czk,
+        "notes": (
+            "price_czk_unit is source currency evidence (price_currency_cb.name). "
+            "EUR/USD/other must not be treated as Kč by importers."
+        ),
     }
     return csv_bytes, manifest
 
