@@ -57,10 +57,16 @@ async def lifespan(app: FastAPI):
     if not settings.is_production:
         init_db()
     clear_scrape_shutdown_request()
-    with Session(engine) as session:
-        reconcile_orphaned_scrape_runs(session)
-        reconcile_orphaned_analytics_runs(session)
-    start_scheduler()
+    try:
+        with Session(engine) as session:
+            reconcile_orphaned_scrape_runs(session)
+            reconcile_orphaned_analytics_runs(session)
+    except Exception:
+        logger.exception("Startup DB reconcile failed; serving /live in degraded mode")
+    try:
+        start_scheduler()
+    except Exception:
+        logger.exception("Scheduler failed to start")
     yield
     # Graceful drain on redeploy/SIGTERM: ask scrape to stop after the current
     # page, then wait briefly for locks to clear (Railway single-service model).
@@ -100,9 +106,15 @@ app.include_router(scraping.router, prefix=settings.api_prefix)
 app.include_router(export.router, prefix=settings.api_prefix)
 
 
+@app.get("/live")
+def live():
+    """Railway edge liveness. Always 200 while the process can accept HTTP."""
+    return {"status": "live"}
+
+
 @app.get("/health")
 def health():
-    """Liveness + DB readiness for the Vercel rewrite/proxy (`/health`, `/api/*`)."""
+    """Readiness for the Vercel rewrite/proxy (`/health`, `/api/*`)."""
     try:
         with Session(engine) as session:
             session.exec(text("SELECT 1"))

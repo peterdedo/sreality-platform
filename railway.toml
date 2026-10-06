@@ -11,6 +11,9 @@ dockerfilePath = "backend/Dockerfile"
 watchPatterns = ["backend/**"]
 
 [deploy]
-healthcheckPath = "/health"
+# /live is process liveness only. /health is readiness (503 if Postgres is down)
+# and must not be the Railway healthcheck — a 503 unregisters the public domain
+# ("Application not found" on *.up.railway.app and the Vercel proxy).
+healthcheckPath = "/live"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

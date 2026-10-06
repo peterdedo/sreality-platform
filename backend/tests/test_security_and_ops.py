@@ -183,3 +183,10 @@ def test_production_rejects_default_database_url():
 def test_production_accepts_proper_secrets():
     s = Settings(app_env="production", api_key="a-real-key", database_url="postgresql+psycopg2://u:p@db:5432/x")
     assert s.is_production is True
+
+
+def test_live_endpoint_is_200_without_database(client):
+    """Railway healthcheck Path=/live must stay green even when Postgres is down."""
+    resp = client.get("/live")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "live"}
