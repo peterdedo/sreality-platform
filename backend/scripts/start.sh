@@ -17,4 +17,5 @@ while [ "$attempt" -le "$max_attempts" ]; do
   sleep 5
 done
 
+echo "sreality-platform API binding 0.0.0.0:${PORT:-8000} (deploy trigger $(date -u +%Y-%m-%dT%H:%M:%SZ))"
 exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"

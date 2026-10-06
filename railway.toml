@@ -8,7 +8,7 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "backend/Dockerfile"
-watchPatterns = ["backend/**"]
+watchPatterns = ["backend/**", "railway.toml"]
 
 [deploy]
 # /live is process liveness only. /health is readiness (503 if Postgres is down)
