@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { handleFallback, LISTINGS } from "./fallbackApi.js";
-import { isRailwayMiss } from "./railwayProxy.js";
+import { effectiveRequestUrl, isRailwayMiss } from "./railwayProxy.js";
 
 describe("handleFallback", () => {
   it("serves /health as ok JSON", () => {
@@ -34,6 +34,27 @@ describe("handleFallback", () => {
   it("rejects export while Railway is down", () => {
     const res = handleFallback("GET", "/api/export/listings", new URLSearchParams());
     expect(res.status).toBe(503);
+  });
+});
+
+describe("effectiveRequestUrl", () => {
+  it("prefers the original-path header over the gateway URL", () => {
+    const request = new Request("https://app.example/api/gateway?page=2", {
+      headers: { "x-sreality-original-path": "/api/analytics/dataset-summary?live=1" },
+    });
+    const url = effectiveRequestUrl(request);
+    expect(url.pathname).toBe("/api/analytics/dataset-summary");
+    expect(url.searchParams.get("live")).toBe("1");
+  });
+
+  it("restores nested paths from the gateway query param", () => {
+    const request = new Request(
+      "https://app.example/api/gateway?__orig_path=/api/analytics/dataset-summary&page=1",
+    );
+    const url = effectiveRequestUrl(request);
+    expect(url.pathname).toBe("/api/analytics/dataset-summary");
+    expect(url.searchParams.get("page")).toBe("1");
+    expect(url.searchParams.get("__orig_path")).toBeNull();
   });
 });
 

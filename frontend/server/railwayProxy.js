@@ -62,8 +62,29 @@ export function json(status, body, extraHeaders = {}) {
   });
 }
 
-export async function dispatchApi(request, handleFallback) {
+export function effectiveRequestUrl(request) {
   const url = new URL(request.url);
+  const fromHeader = request.headers.get("x-sreality-original-path");
+  const fromQuery = url.searchParams.get("__orig_path");
+  url.searchParams.delete("__orig_path");
+  if (fromHeader) {
+    const original = new URL(fromHeader, url.origin);
+    original.searchParams.delete("__orig_path");
+    return original;
+  }
+  if (fromQuery) {
+    const original = new URL(fromQuery, url.origin);
+    for (const [key, value] of url.searchParams.entries()) {
+      if (!original.searchParams.has(key)) original.searchParams.set(key, value);
+    }
+    original.searchParams.delete("__orig_path");
+    return original;
+  }
+  return url;
+}
+
+export async function dispatchApi(request, handleFallback) {
+  const url = effectiveRequestUrl(request);
   const proxied = await proxyRailway(request, railwayPath(url.pathname, url.search));
   if (proxied) {
     return json(proxied.status, proxied.body, { "x-sreality-data-source": "railway" });

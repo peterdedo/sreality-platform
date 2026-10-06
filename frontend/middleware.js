@@ -1,15 +1,12 @@
 /**
- * Vercel Edge Middleware — API key injection + /health routing.
+ * Vercel Edge Middleware — API key injection + API gateway routing.
  *
- * Railway currently has no active public deployment, so this middleware
- * MUST NOT rewrite /health or /api/* to the Railway origin. Doing that
- * bypasses Vercel functions (frontend/api/*) which try Railway and then
- * serve a demo fallback so the SPA stays usable.
+ * Nested /api/* paths do not hit api/[...path].js on this Vite + outputDirectory
+ * project (Vercel returns NOT_FOUND). All backend paths are rewritten to the
+ * one-segment function /api/gateway, which tries Railway then serves demo data.
  *
- * 1. Rewrites /health → /api/health (Vercel Edge function).
- * 2. Injects X-API-Key for write/export paths so the SPA never embeds the
- *    secret (no VITE_API_KEY in the client bundle). Functions then proxy
- *    the request to Railway when it is up.
+ * 1. Rewrites /health and /api/* → /api/gateway (except /api/gateway itself).
+ * 2. Injects X-API-Key for write/export paths so the SPA never embeds the secret.
  *
  * Set the same API_KEY on Vercel (server/edge env) and Railway.
  * Local Vite uses vite.config.ts proxy injection instead.
@@ -25,12 +22,13 @@ const PROTECTED_PATHS = [
   /^\/api\/export\//,
 ];
 
+const GATEWAY = "/api/gateway";
+
 function isBackendPath(pathname) {
   return pathname === "/health" || pathname.startsWith("/health/") || pathname === "/api" || pathname.startsWith("/api/");
 }
 
-function withApiKey(request) {
-  const { pathname } = new URL(request.url);
+function withApiKey(request, pathname) {
   const needsKey = PROTECTED_PATHS.some((re) => re.test(pathname));
   if (!needsKey) return null;
 
@@ -49,25 +47,34 @@ function withApiKey(request) {
   return requestHeaders;
 }
 
+function gatewayHeaders(request, pathname, search) {
+  const keyHeaders = withApiKey(request, pathname);
+  if (keyHeaders instanceof Response) return keyHeaders;
+  const headers = new Headers(keyHeaders ?? request.headers);
+  headers.set("x-sreality-original-path", `${pathname}${search}`);
+  return headers;
+}
+
 export default function middleware(request) {
   const { pathname, search } = new URL(request.url);
 
-  if (pathname === "/health" || pathname === "/health/") {
-    const headers = withApiKey(request);
+  if (pathname === GATEWAY || pathname === "/api/health") {
+    const originalPath = request.headers.get("x-sreality-original-path") ?? pathname;
+    const headers = withApiKey(request, originalPath.split("?")[0]);
     if (headers instanceof Response) return headers;
-    return rewrite(new URL(`/api/health${search}`, request.url), {
-      request: { headers: headers ?? request.headers },
-    });
+    if (!headers) return next();
+    return next({ request: { headers } });
   }
 
   if (!isBackendPath(pathname)) {
     return next();
   }
 
-  const headers = withApiKey(request);
+  const headers = gatewayHeaders(request, pathname, search);
   if (headers instanceof Response) return headers;
-  if (!headers) return next();
-  return next({ request: { headers } });
+  const dest = new URL(`${GATEWAY}${search}`, request.url);
+  dest.searchParams.set("__orig_path", pathname);
+  return rewrite(dest, { request: { headers } });
 }
 
 export const config = {
