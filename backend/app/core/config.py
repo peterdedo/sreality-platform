@@ -52,9 +52,10 @@ class Settings(BaseSettings):
 
     # Scheduler
     enable_scheduler: bool = True
-    # Once daily at 02:00 — full category sweep (incremental pipeline with delisting).
+    # Incremental scrape: once weekly (default Sunday 02:00 UTC).
     incremental_scrape_cron_hour: str = "2"
-    # Prune archival list rawpayloads after the nightly scrape window (05:00).
+    incremental_scrape_cron_day_of_week: str = "sun"
+    # Prune archival list rawpayloads after the scrape window (05:00).
     prune_raw_payloads_hour: str = "5"
 
     # Analytics

@@ -349,7 +349,8 @@ export const cs = {
   },
   scraping: {
     titulek: "Správa scrapingu",
-    podtitulek: "Operační přehled běhů scrapingu, doplnění detailů a stavu datasetu.",
+    podtitulek:
+      "Operační přehled běhů scrapingu, doplnění detailů a stavu datasetu. Plánovaný scraping: 1× týdně (neděle 02:00 UTC).",
     spustitScraping: "Spustit scraping",
     scrapeBusyUpozorneni:
       "Scraping právě běží na backendu. Nenasazujte novou verzi API a znovu nespouštějte „Spustit scraping“ — počkejte na dokončení, nebo počítejte s přerušením (stav „částečně úspěšný“).",

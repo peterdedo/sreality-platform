@@ -148,6 +148,23 @@ def test_scheduler_job_ids_are_stable():
     assert set(JOB_SPECS) == {"incremental_scrape", "analytics_snapshot", "prune_list_raw_payloads"}
 
 
+def test_incremental_scrape_defaults_to_weekly_sunday():
+    s = Settings()
+    assert s.incremental_scrape_cron_hour == "2"
+    assert s.incremental_scrape_cron_day_of_week == "sun"
+
+
+def test_incremental_scrape_trigger_is_weekly():
+    from app.scheduler import build_cron_trigger
+
+    scrape = build_cron_trigger("incremental_scrape", "incremental_scrape_cron_hour")
+    daily = build_cron_trigger("analytics_snapshot", "analytics_snapshot_hour")
+    scrape_text = str(scrape).lower()
+    assert "sun" in scrape_text or "day_of_week='sun'" in scrape_text
+    daily_text = str(daily).lower()
+    assert "sun" not in daily_text
+
+
 # --- T4: create_all gating + production fail-loud ------------------------
 
 def test_is_production_flag():

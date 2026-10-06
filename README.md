@@ -30,7 +30,7 @@ All configuration is environment-variable driven (`app/core/config.py`, loaded f
 ### Scheduler (periodic jobs)
 
 - `ENABLE_SCHEDULER` — `true` (default) / `false`. When enabled, cron jobs are registered (`app/scheduler.py`), each configurable via a cron "hour" expression:
-  - `INCREMENTAL_SCRAPE_CRON_HOUR` (default `2` — daily 02:00 full-category sweep)
+  - `INCREMENTAL_SCRAPE_CRON_HOUR` (default `2`) and `INCREMENTAL_SCRAPE_CRON_DAY_OF_WEEK` (default `sun` — weekly Sunday 02:00 UTC full-category sweep)
   - `PRUNE_RAW_PAYLOADS_HOUR` (default `5` — prune archival list rawpayloads)
   - `ANALYTICS_SNAPSHOT_HOUR` (default `4` — daily Pokročilé analýzy recompute)
   - All jobs run with `coalesce=True` and `misfire_grace_time=3600`. A test asserts every `*_hour` setting is wired to a job.
@@ -190,7 +190,7 @@ frontend/
 6. **Fallback path:** Playwright browser automation (`app/scraping/browser_fallback.py`) if the JSON API fails repeatedly — partial; not used in the verified full sweep.
 7. **Raw payload retention:** every API response is stored in `raw_payloads` before parsing.
 
-Scraping runs on a schedule via APScheduler (`ENABLE_SCHEDULER`, `INCREMENTAL_SCRAPE_CRON_HOUR` in `.env`) or on demand from **Správa scrapingu** / `POST /api/scraping/trigger` (guarded; 10 req/min rate limit). **Verified:** run 26 recovered **105 480** listings (2026-07-03). See [`docs/SCRAPE_COMPLETENESS.md`](docs/SCRAPE_COMPLETENESS.md).
+Scraping runs on a schedule via APScheduler (`ENABLE_SCHEDULER`, `INCREMENTAL_SCRAPE_CRON_DAY_OF_WEEK` + `INCREMENTAL_SCRAPE_CRON_HOUR` in `.env`; default once weekly Sunday 02:00 UTC) or on demand from **Správa scrapingu** / `POST /api/scraping/trigger` (guarded; 10 req/min rate limit). **Verified:** run 26 recovered **105 480** listings (2026-07-03). See [`docs/SCRAPE_COMPLETENESS.md`](docs/SCRAPE_COMPLETENESS.md).
 
 ## Dataset scope & intentional limits
 

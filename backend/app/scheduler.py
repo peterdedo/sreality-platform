@@ -83,6 +83,16 @@ JOB_SPECS: dict[str, tuple[str, object]] = {
 }
 
 
+def build_cron_trigger(job_id: str, hour_attr: str) -> CronTrigger:
+    hour = getattr(settings, hour_attr)
+    if job_id == "incremental_scrape":
+        return CronTrigger(
+            day_of_week=settings.incremental_scrape_cron_day_of_week,
+            hour=hour,
+        )
+    return CronTrigger(hour=hour)
+
+
 def start_scheduler() -> None:
     if not settings.enable_scheduler:
         logger.info("Scheduler disabled via ENABLE_SCHEDULER=false")
@@ -91,7 +101,7 @@ def start_scheduler() -> None:
     for job_id, (cron_attr, func) in JOB_SPECS.items():
         scheduler.add_job(
             func,
-            trigger=CronTrigger(hour=getattr(settings, cron_attr)),
+            trigger=build_cron_trigger(job_id, cron_attr),
             id=job_id,
             replace_existing=True,
             max_instances=1,
@@ -102,4 +112,9 @@ def start_scheduler() -> None:
             misfire_grace_time=3600,
         )
     scheduler.start()
-    logger.info("Scheduler started with jobs: %s", ", ".join(JOB_SPECS))
+    logger.info(
+        "Scheduler started with jobs: %s (incremental_scrape=%s %s:00 UTC)",
+        ", ".join(JOB_SPECS),
+        settings.incremental_scrape_cron_day_of_week,
+        settings.incremental_scrape_cron_hour,
+    )

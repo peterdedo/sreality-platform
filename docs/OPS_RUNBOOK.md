@@ -10,7 +10,8 @@ Single-operator production notes for Railway (API + scheduler + scrape) and Verc
 | Vercel | `API_KEY` | **Same value** as Railway. Injected by Edge Middleware for write/export paths — **do not** set `VITE_API_KEY` (removed from SPA) |
 | Railway | `DATABASE_URL` | Postgres on volume |
 | Railway | `CORS_ORIGINS` | `["https://sreality-platform.vercel.app"]` |
-| Railway | `INCREMENTAL_SCRAPE_CRON_HOUR` | Default `2` (once daily 02:00) |
+| Railway | `INCREMENTAL_SCRAPE_CRON_HOUR` | Default `2` (02:00 UTC) |
+| Railway | `INCREMENTAL_SCRAPE_CRON_DAY_OF_WEEK` | Default `sun` (once weekly) |
 | Railway | `PRUNE_RAW_PAYLOADS_HOUR` | Default `5` |
 | Railway | `ANALYTICS_SNAPSHOT_HOUR` | Default `4` |
 | Optional | `SENTRY_DSN` | Backend error reporting |
@@ -19,7 +20,7 @@ Single-operator production notes for Railway (API + scheduler + scrape) and Verc
 
 Jobs (APScheduler in-process):
 
-1. `incremental_scrape` — daily full-category sweep + delisting (when no coverage_gap)
+1. `incremental_scrape` — weekly full-category sweep + delisting (Sunday 02:00 UTC; when no coverage_gap)
 2. `analytics_snapshot` — Pokročilé analýzy recompute
 3. `prune_list_raw_payloads` — delete archival `rawpayload` list rows + VACUUM
 
@@ -30,7 +31,7 @@ There is **no** separate `full_scrape` job (it was redundant with incremental).
 The API process is a single Railway service. On SIGTERM the lifespan **requests cooperative scrape shutdown** (finish current page/item → `partial` with a clear redeploy message), then waits up to **150s** for scrape advisory locks to clear. Prefer:
 
 1. Do not click „Spustit scraping“ immediately before a redeploy.
-2. Prefer redeploying outside the 02:00–05:00 scrape/prune window. If `GET /health` shows `scrape_busy: true`, wait for the run to finish or accept a `partial` result.
+2. Prefer redeploying outside the Sunday 02:00–05:00 UTC scrape/prune window. If `GET /health` shows `scrape_busy: true`, wait for the run to finish or accept a `partial` result.
 3. Soft shutdown uses a redeploy-specific message; hard kill (process dies before the flag is checked) is closed on next startup by orphan reconciliation with a different message.
 
 Delisting is **per-category**: a slice may delist when its `coverage_gap` is within threshold (abs ≤ 5 or ≤ 0.05%). Structural gaps on domy/pozemky no longer block byt/prodej delisting. Report gaps with `python -m scripts.report_coverage_gaps <run_id> --api https://sreality-platform.vercel.app/api`.
