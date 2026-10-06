@@ -108,7 +108,7 @@ app.include_router(export.router, prefix=settings.api_prefix)
 
 @app.get("/live")
 def live():
-    """Railway edge liveness. Always 200 while the process can accept HTTP."""
+    """Railway edge liveness. Always 200 while the process can accept HTTP. Public domain stays attached."""
     return {"status": "live"}
 
 
