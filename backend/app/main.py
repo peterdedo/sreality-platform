@@ -102,7 +102,7 @@ app.include_router(export.router, prefix=settings.api_prefix)
 
 @app.get("/health")
 def health():
-    """Liveness + DB readiness for Railway/Vercel proxy checks."""
+    """Liveness + DB readiness for the Vercel rewrite/proxy (`/health`, `/api/*`)."""
     try:
         with Session(engine) as session:
             session.exec(text("SELECT 1"))

@@ -22,6 +22,12 @@ type HealthProbeResult =
   | { kind: "database_unavailable" }
   | { kind: "unreachable" };
 
+/** HTML 404 means Vercel served the SPA — proxy rewrites are missing. JSON 404 is the backend/edge. */
+export function classifyDatasetSummaryFailure(status: number, contentType: string): "not_configured" | "down" {
+  if (status === 404 && contentType.includes("text/html")) return "not_configured";
+  return "down";
+}
+
 async function probeHealthEndpoint(): Promise<HealthProbeResult> {
   try {
     const res = await fetchWithTimeout("/health");
@@ -51,8 +57,8 @@ export async function probeBackendReachability(): Promise<BackendReachability> {
   try {
     const res = await fetchWithTimeout("/api/analytics/dataset-summary");
     if (res.ok) return { state: "available", scrapeBusy: false };
-    if (res.status === 404) return { state: "unavailable", reason: "not_configured" };
-    return { state: "unavailable", reason: "down" };
+    const contentType = res.headers.get("content-type") ?? "";
+    return { state: "unavailable", reason: classifyDatasetSummaryFailure(res.status, contentType) };
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       return { state: "unavailable", reason: "timeout" };

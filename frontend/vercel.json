@@ -1,4 +1,5 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "tsc -b && vite build",
   "outputDirectory": "dist",
   "rewrites": [
@@ -7,7 +8,15 @@
       "destination": "https://sreality-platform-production.up.railway.app/api/:path*"
     },
     {
+      "source": "/api",
+      "destination": "https://sreality-platform-production.up.railway.app/api"
+    },
+    {
       "source": "/health",
+      "destination": "https://sreality-platform-production.up.railway.app/health"
+    },
+    {
+      "source": "/health/",
       "destination": "https://sreality-platform-production.up.railway.app/health"
     },
     {
