@@ -1,23 +1,23 @@
 /**
- * Vercel Edge Middleware — API proxy + X-API-Key injection.
+ * Vercel Edge Middleware — API key injection + /health routing.
  *
- * 1. Rewrites /health and /api/* to the Railway backend at request time.
- *    BACKEND_URL (Vercel env) wins; otherwise the production Railway domain.
- *    vercel.json rewrites are the fallback if this matcher does not run.
+ * Railway currently has no active public deployment, so this middleware
+ * MUST NOT rewrite /health or /api/* to the Railway origin. Doing that
+ * bypasses Vercel functions (frontend/api/*) which try Railway and then
+ * serve a demo fallback so the SPA stays usable.
  *
+ * 1. Rewrites /health → /api/health (Vercel Edge function).
  * 2. Injects X-API-Key for write/export paths so the SPA never embeds the
- *    secret (no VITE_API_KEY in the client bundle).
+ *    secret (no VITE_API_KEY in the client bundle). Functions then proxy
+ *    the request to Railway when it is up.
  *
  * Set the same API_KEY on Vercel (server/edge env) and Railway.
  * Local Vite uses vite.config.ts proxy injection instead.
  *
  * IMPORTANT: headers must be set under `request.headers` so they are forwarded
- * to the Railway rewrite. Top-level `headers` are response headers and never
- * reach the backend (that caused production 401 on trigger/backfill).
+ * to the function. Top-level `headers` are response headers.
  */
 import { next, rewrite } from "@vercel/edge";
-
-const DEFAULT_BACKEND = "https://sreality-platform-production.up.railway.app";
 
 const PROTECTED_PATHS = [
   /^\/api\/scraping\/(trigger|backfill-missing-details|backfill-price-units|reconcile-orphaned-runs|prune-raw-payloads)\/?$/,
@@ -25,26 +25,14 @@ const PROTECTED_PATHS = [
   /^\/api\/export\//,
 ];
 
-function backendOrigin() {
-  const fromEnv = (process.env.BACKEND_URL ?? "").trim().replace(/\/$/, "");
-  return fromEnv || DEFAULT_BACKEND;
-}
-
 function isBackendPath(pathname) {
   return pathname === "/health" || pathname.startsWith("/health/") || pathname === "/api" || pathname.startsWith("/api/");
 }
 
-export default function middleware(request) {
-  const { pathname, search } = new URL(request.url);
-  if (!isBackendPath(pathname)) {
-    return next();
-  }
-
-  const destination = new URL(pathname + search, `${backendOrigin()}/`);
+function withApiKey(request) {
+  const { pathname } = new URL(request.url);
   const needsKey = PROTECTED_PATHS.some((re) => re.test(pathname));
-  if (!needsKey) {
-    return rewrite(destination);
-  }
+  if (!needsKey) return null;
 
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
@@ -58,12 +46,28 @@ export default function middleware(request) {
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("X-API-Key", apiKey);
+  return requestHeaders;
+}
 
-  return rewrite(destination, {
-    request: {
-      headers: requestHeaders,
-    },
-  });
+export default function middleware(request) {
+  const { pathname, search } = new URL(request.url);
+
+  if (pathname === "/health" || pathname === "/health/") {
+    const headers = withApiKey(request);
+    if (headers instanceof Response) return headers;
+    return rewrite(new URL(`/api/health${search}`, request.url), {
+      request: { headers: headers ?? request.headers },
+    });
+  }
+
+  if (!isBackendPath(pathname)) {
+    return next();
+  }
+
+  const headers = withApiKey(request);
+  if (headers instanceof Response) return headers;
+  if (!headers) return next();
+  return next({ request: { headers } });
 }
 
 export const config = {

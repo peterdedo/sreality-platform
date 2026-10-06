@@ -4,23 +4,15 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://sreality-platform-production.up.railway.app/api/:path*"
-    },
-    {
-      "source": "/api",
-      "destination": "https://sreality-platform-production.up.railway.app/api"
-    },
-    {
       "source": "/health",
-      "destination": "https://sreality-platform-production.up.railway.app/health"
+      "destination": "/api/health"
     },
     {
       "source": "/health/",
-      "destination": "https://sreality-platform-production.up.railway.app/health"
+      "destination": "/api/health"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]
